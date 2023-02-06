@@ -5,6 +5,16 @@
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
 VERSION ?= 0.0.1
 
+# Setting SHELL to bash allows bash commands to be executed by recipes.
+# Options are set to exit when a recipe line exits non-zero or a piped command fails.
+SHELL = /usr/bin/env bash -o pipefail
+.SHELLFLAGS = -ec
+
+PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+
+PRIMAZA_REPO = https://github.com/primaza/primaza.git
+PRIMAZA_BRANCH = main
+
 .PHONY: all
 all: kustomize
 
@@ -34,8 +44,9 @@ endif
 
 ##@ Build Dependencies
 
+
 ## Location to install dependencies to
-LOCALBIN ?= $(PROJECT_DIR)/bin
+LOCALBIN ?= $(PROJECT_DIR)/scripts/bin
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
@@ -51,3 +62,19 @@ kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
 $(KUSTOMIZE): $(LOCALBIN)
 	test -s $(LOCALBIN)/kustomize || { curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
 
+.PHONY: config
+config: ## Get config files from primaza repo.
+	rm -rf temp
+	git clone $(PRIMAZA_REPO) temp
+	cd temp && git checkout $(PRIMAZA_BRANCH)
+	rm -rf scripts/config
+	cp -R temp/config scripts
+	rm -rf temp
+
+.PHONY: all
+all: kustomize config
+
+.PHONY: clean
+clean:
+	rm -rf scripts/bin
+	rm -rf scripts/config

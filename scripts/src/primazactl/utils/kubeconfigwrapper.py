@@ -2,7 +2,7 @@ from kubeconfig import KubeConfig
 import yaml
 
 
-class KubeConfigContent(object):
+class KubeConfigWrapper(object):
 
     kube_config_file: str = None
     kube_config_content = None
@@ -10,7 +10,10 @@ class KubeConfigContent(object):
 
     def __init__(self, cluster_name: str,kube_config_file: str):
         self.kube_config_file = kube_config_file
-        self.cluster_name = cluster_name
+        if not cluster_name:
+            self.cluster_name = self.get_context()
+        else:
+            self.cluster_name = cluster_name
 
     def get_server_url(self):
         kube_config_content = self.__get_kube_config_content_as_yaml()
@@ -23,12 +26,16 @@ class KubeConfigContent(object):
 
     def set_server_url(self,server_url):
         config = KubeConfig(self.kube_config_file)
-        config.use_context(f"kind-{self.cluster_name}")
+        config.use_context(f"{self.cluster_name}")
         config.set_cluster(server=server_url)
 
     def use_context(self):
         config = KubeConfig(self.kube_config_file)
-        config.use_context(f"kind-{self.cluster_name}")
+        config.use_context(f"{self.cluster_name}")
+
+    def get_context(self):
+        config = KubeConfig(self.kube_config_file)
+        return config.current_context()
 
     def __get_kube_config_content_as_yaml(self):
         if not self.kube_config_content:
