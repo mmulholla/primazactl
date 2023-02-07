@@ -36,7 +36,6 @@ jobs:
 
 
       - name: Create the the release
-        if: ${{ steps.check_version_updated.outputs.updated == 'true'}}
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.event.inputs.version }}
