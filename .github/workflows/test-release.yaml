@@ -31,8 +31,8 @@ jobs:
         run: |
           cd scripts/config/default
           ../../bin/kustomize edit set image controller=${{ github.event.inputs.version }}
-          cd ../..
-          bin/kustomize build config/default > ${PRIMAZA_CONFIG_FILE}
+          cd ../../..
+          scripts/bin/kustomize build scripts/config/default > ${PRIMAZA_CONFIG_FILE}
 
 
       - name: Create the the release
