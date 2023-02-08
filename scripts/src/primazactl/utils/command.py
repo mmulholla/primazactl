@@ -18,21 +18,29 @@ class Command(object):
         self.setenv("PATH", path)
 
     def setenv(self, key, value):
-        assert key is not None and value is not None, f"Name or value of the environment variable cannot be None: [{key} = {value}]"
+        assert key is not None and value is not None, \
+            f"Name or value of the environment variable cannot be None:" \
+            f" [{key} = {value}]"
         self.env[key] = value
         return self
 
     def run(self, cmd, stdin=None):
-        print(f",---------,-\n| COMMAND : {cmd}\n'---------'-")  # for debugging purposes
+        # for debugging purposes
+        print(f",---------,-\n| COMMAND : {cmd}\n'---------'-")
         if stdin is not None:
             print(f"With stdin: [\n{stdin}\n]\n")
         output = None
         exit_code = 0
         try:
             if stdin is None:
-                output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT, cwd=self.path, env=self.env)
+                output = subprocess.check_output(cmd, shell=True,
+                                                 stderr=subprocess.STDOUT,
+                                                 cwd=self.path, env=self.env)
             else:
-                output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT, cwd=self.path, env=self.env, input=stdin.encode("utf-8"))
+                output = subprocess.check_output(cmd, shell=True,
+                                                 stderr=subprocess.STDOUT,
+                                                 cwd=self.path, env=self.env,
+                                                 input=stdin.encode("utf-8"))
         except subprocess.CalledProcessError as err:
             output = err.output
             exit_code = err.returncode

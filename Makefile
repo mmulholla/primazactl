@@ -56,6 +56,14 @@ KUSTOMIZE ?= $(LOCALBIN)/kustomize
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v3.8.7
 
+OUTPUT_DIR ?= $(PROJECT_DIR)/out
+$(OUTPUT_DIR):
+	mkdir -p $(OUTPUT_DIR)
+PYTHON_VENV_DIR = $(OUTPUT_DIR)/venv3
+HACK_DIR ?= $(PROJECT_DIR)/hack
+
+PRIMAZA_CONFIG = $(PROJECT_DIR)/scripts/bin/primaza_config_latest.yaml
+
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
@@ -63,18 +71,32 @@ $(KUSTOMIZE): $(LOCALBIN)
 	test -s $(LOCALBIN)/kustomize || { curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
 
 .PHONY: config
-config: ## Get config files from primaza repo.
+config: kustomize ## Get config files from primaza repo.
 	rm -rf temp
 	git clone $(PRIMAZA_REPO) temp
 	cd temp && git checkout $(PRIMAZA_BRANCH)
-	rm -rf scripts/config
-	cp -R temp/config scripts
+	$(KUSTOMIZE) build config/default >> temp/config/primaza_config_main.yaml
 	rm -rf temp
 
 .PHONY: all
-all: kustomize config
+all: lint-python install config
+
+.PHONY: install
+install: setup-venv ## Setup the environment for the acceptance tests
+	$(PYTHON_VENV_DIR)/bin/pip install -q -r scripts/src/requirements.txt
+
+.PHONY: setup-venv
+setup-venv: ## Setup virtual environment
+	python3 -m venv $(PYTHON_VENV_DIR)
+	$(PYTHON_VENV_DIR)/bin/pip install --upgrade setuptools
+	$(PYTHON_VENV_DIR)/bin/pip install --upgrade pip
+
+.PHONY: lint
+lint: setup-venv ## Check python code
+	PYTHON_VENV_DIR=$(PYTHON_VENV_DIR) $(HACK_DIR)/check-python/lint-python-code.sh
 
 .PHONY: clean
 clean:
-	rm -rf scripts/bin
-	rm -rf scripts/config
+	rm -rf $(OUTPUT_DIR)
+	rm -rf $(LOCALBIN)
+	rm  $(PRIMAZA_CONFIG)
