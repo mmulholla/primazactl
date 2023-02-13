@@ -17,8 +17,7 @@ def main():
     parser.add_argument("-c", "--clustername",
         dest="cluster_name", type=str, required=True,
         help="name of cluster, as it appears in kubeconfig, \
-                on which to install primaza or worker, default: \
-                current kubeconfig context")
+                on which to install primaza or worker")
 
     args = parser.parse_args()
 
@@ -46,7 +45,7 @@ def main():
         if err:
             print("[FAIL]: {err}")
             sys.exit(1)
-            
+
 
     pods = subprocess.run(["kubectl","describe","pods","-n","primaza-system"],
                           capture_output=True)
