@@ -10,6 +10,8 @@ VERSION ?= 0.0.1
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
+IMG ?= quay.io/redhat-primaza/primaza-main-controllers
+
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 
 PRIMAZA_REPO = https://github.com/primaza/primaza.git
@@ -61,12 +63,18 @@ $(OUTPUT_DIR):
 	mkdir -p $(OUTPUT_DIR)
 PYTHON_VENV_DIR = $(OUTPUT_DIR)/venv3
 HACK_DIR ?= $(PROJECT_DIR)/hack
+SCRIPTS_DIR = $(PROJECT_DIR)/scripts
 
-PRIMAZA_CONFIG_DIR ?= $(PROJECT_DIR)/scripts/config
+PRIMAZA_CONFIG_DIR ?= $(SCRIPTS_DIR)/config
 $(PRIMAZA_CONFIG_DIR):
 	mkdir -p $(PRIMAZA_CONFIG_DIR)
 
 PRIMAZA_CONFIG_FILE = $(PRIMAZA_CONFIG_DIR)/primaza_config_latest.yaml
+
+KIND_CONFIG_DIR ?= $(SCRIPTS_DIR)/src/primazatest/config
+KIND_CONFIG_FILE ?= $(KIND_CONFIG_DIR)/kind.yaml
+KIND_CLUSTER_NAME ?= primazactl-test
+KUBE_KIND_CLUSTER_NAME ?= kind-$(KIND_CLUSTER_NAME)
 
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 .PHONY: kustomize
@@ -75,32 +83,58 @@ $(KUSTOMIZE): $(LOCALBIN)
 	test -s $(LOCALBIN)/kustomize || { curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
 
 .PHONY: config
-config: kustomize $(PRIMAZA_CONFIG_DIR) ## Get config files from primaza repo.
-	rm -rf temp
+config: clone kustomize $(PRIMAZA_CONFIG_DIR) ## Get config files from primaza repo.
+	cd temp/config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	$(KUSTOMIZE) build temp/config/default > $(PRIMAZA_CONFIG_FILE)
+
+.PHONY: primaza-image
+primaza-image: clone
+	cd temp && export IMG=$(IMG) && make primaza docker-build
+
+ifeq ($(shell sh -c 'uname 2>/dev/null || echo Unknown'),Darwin)
+SED_EXTRA := .bak
+endif
+
+.PHONY: kind-cluster
+kind-cluster: $(SED-EXTRA)
+	-kind delete cluster --name $(KIND_CLUSTER_NAME)
+	sed -i $(SED_EXTRA) 's/name:.*/name: $(KIND_CLUSTER_NAME)/g' $(KIND_CONFIG_FILE)
+	kind create cluster --config $(KIND_CONFIG_FILE) && kubectl wait --for condition=Ready nodes --all --timeout=600s
+
+.PHONY: setup-test
+setup-test: clean primaza-image kind-cluster setup-venv config
+
+.PHONY: clone
+clone: clean-temp
 	git clone $(PRIMAZA_REPO) temp
 	cd temp && git checkout $(PRIMAZA_BRANCH)
-	$(KUSTOMIZE) build temp/config/default > $(PRIMAZA_CONFIG_FILE)
-	rm -rf temp
 
 .PHONY: all
-all: lint install config
-
-.PHONY: install
-install: setup-venv ## Setup the environment for the acceptance tests
-	$(PYTHON_VENV_DIR)/bin/pip install -q -r scripts/requirements.txt
+all: lint setup-venv config
 
 .PHONY: setup-venv
 setup-venv: ## Setup virtual environment
+	-rm -rf $(PYTHON_VENV_DIR)
 	python3 -m venv $(PYTHON_VENV_DIR)
-	$(PYTHON_VENV_DIR)/bin/pip install --upgrade setuptools
-	$(PYTHON_VENV_DIR)/bin/pip install --upgrade pip
+	cd $(SCRIPTS_DIR) && $(PYTHON_VENV_DIR)/bin/pip3 install -r requirements.txt
+	cd $(SCRIPTS_DIR) && $(PYTHON_VENV_DIR)/bin/python3 setup.py install
 
 .PHONY: lint
 lint: setup-venv ## Check python code
 	PYTHON_VENV_DIR=$(PYTHON_VENV_DIR) $(HACK_DIR)/check-python/lint-python-code.sh
 
+.PHONY: test
+test: setup-test
+	$(PYTHON_VENV_DIR)/bin/primazatest -v $(PYTHON_VENV_DIR) -f $(PRIMAZA_CONFIG_FILE) -c $(KUBE_KIND_CLUSTER_NAME)
+
+.PHONY: clean-temp
+clean-temp:
+	-chmod 755 temp/bin/k8s/1.25.0-darwin-amd64
+	rm -rf temp
+
 .PHONY: clean
-clean:
+clean: clean-temp
 	rm -rf $(OUTPUT_DIR)
 	rm -rf $(LOCALBIN)
 	rm -rf $(PRIMAZA_CONFIG_DIR)
+	-kind delete cluster --name $(KIND_CLUSTER_NAME)

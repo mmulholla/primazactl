@@ -3,7 +3,8 @@ import os
 import semver
 import sys
 from pathlib import Path
-from primazamain import primazamain
+sys.path.append('./scripts/src/')
+from primazactl.primazamain import primazamain
 
 
 def main():

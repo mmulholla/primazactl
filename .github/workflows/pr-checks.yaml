@@ -23,11 +23,10 @@ jobs:
       - name: Lint python
         run: make lint
 
-      - name: run install
-        run: make install
+      - name: run test
+        run: make test
 
-      - name: run config
-        run: make config
+
 
 
 
