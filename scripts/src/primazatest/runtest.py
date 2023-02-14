@@ -48,9 +48,9 @@ def main():
         if err:
             print("[FAIL]: {err}")
             sys.exit(1)
-        sleep(1)
+        time.sleep(1)
 
-    sleep(5)
+    time.sleep(5)
     pods = subprocess.run(["kubectl", "describe",
                            "pods", "-n", "primaza-system"],
                           capture_output=True)
