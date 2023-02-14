@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-directories=${directories:-"scripts/src/primazactl"}
+directories=${directories:-"scripts/src"}
 export pass=0
 export fail=0
 
