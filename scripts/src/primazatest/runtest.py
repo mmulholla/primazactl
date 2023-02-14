@@ -37,7 +37,7 @@ def main():
             print("[FAIL]: {err}")
             sys.exit(1)
 
-    for i in range(1, 40):
+    for i in range(1, 50):
         pods = subprocess.run(["kubectl", "get", "pods", "-n",
                                "primaza-system"], capture_output=True)
         print(f'{i} {time.strftime("%I:%M:%S %p", time.localtime())}. '
@@ -48,7 +48,9 @@ def main():
         if err:
             print("[FAIL]: {err}")
             sys.exit(1)
+        sleep(1)
 
+    sleep(5)
     pods = subprocess.run(["kubectl", "describe",
                            "pods", "-n", "primaza-system"],
                           capture_output=True)

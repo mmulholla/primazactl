@@ -30,6 +30,10 @@ jobs:
       - name: run test
         run: make test
 
+      - name: clean up
+        if: always()
+        run: make clean
+
 
 
 
