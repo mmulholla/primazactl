@@ -43,7 +43,10 @@ Brought to you by the RedHat app-services team.
 - Note all flags are optional if the default are acceptable.
 - Before running the script:
   - Ensure a properly configured cluster is available.
+    - run ```make kind-cluster``` to create a properly configured kind cluster.
   - Ensure the required primaza image is uploaded to docker.
+    - run ```make primaza-image```
+  - These steps can be completed together by running ```make setup-test```
 
 
 
