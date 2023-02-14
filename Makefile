@@ -116,6 +116,8 @@ all: lint setup-venv config
 setup-venv: ## Setup virtual environment
 	-rm -rf $(PYTHON_VENV_DIR)
 	python3 -m venv $(PYTHON_VENV_DIR)
+	$(PYTHON_VENV_DIR)/bin/pip install --upgrade setuptools
+	$(PYTHON_VENV_DIR)/bin/pip install --upgrade pip
 	cd $(SCRIPTS_DIR) && $(PYTHON_VENV_DIR)/bin/pip3 install -r requirements.txt
 	cd $(SCRIPTS_DIR) && $(PYTHON_VENV_DIR)/bin/python3 setup.py install
 
