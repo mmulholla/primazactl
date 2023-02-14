@@ -10,7 +10,7 @@ VERSION ?= 0.0.1
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
-IMG ?= quay.io/redhat-primaza/primaza-main-controllers
+IMG = quay.io/redhat-primaza/primaza-main-controllers
 
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 
@@ -64,6 +64,7 @@ $(OUTPUT_DIR):
 PYTHON_VENV_DIR = $(OUTPUT_DIR)/venv3
 HACK_DIR ?= $(PROJECT_DIR)/hack
 SCRIPTS_DIR = $(PROJECT_DIR)/scripts
+TEMP_DIR = $(PROJECT_DIR)/temp
 
 PRIMAZA_CONFIG_DIR ?= $(SCRIPTS_DIR)/config
 $(PRIMAZA_CONFIG_DIR):
@@ -84,8 +85,8 @@ $(KUSTOMIZE): $(LOCALBIN)
 
 .PHONY: config
 config: clone kustomize $(PRIMAZA_CONFIG_DIR) ## Get config files from primaza repo.
-	cd temp/config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	$(KUSTOMIZE) build temp/config/default > $(PRIMAZA_CONFIG_FILE)
+	cd $(TEMP_DIR)/config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	$(KUSTOMIZE) build $(TEMP_DIR)/config/default > $(PRIMAZA_CONFIG_FILE)
 
 .PHONY: primaza-image
 primaza-image: clone
@@ -106,8 +107,8 @@ setup-test: clean primaza-image kind-cluster setup-venv config
 
 .PHONY: clone
 clone: clean-temp
-	git clone $(PRIMAZA_REPO) temp
-	cd temp && git checkout $(PRIMAZA_BRANCH)
+	git clone $(PRIMAZA_REPO) $(TEMP_DIR)
+	cd $(TEMP_DIR) && git checkout $(PRIMAZA_BRANCH)
 
 .PHONY: all
 all: lint setup-venv config
@@ -131,8 +132,8 @@ test: setup-test
 
 .PHONY: clean-temp
 clean-temp:
-	-chmod 755 temp/bin/k8s/1.25.0-darwin-amd64
-	rm -rf temp
+	-chmod 755 $(TEMP_DIR)/bin/k8s/*
+	rm -rf $(TEMP_DIR)
 
 .PHONY: clean
 clean: clean-temp

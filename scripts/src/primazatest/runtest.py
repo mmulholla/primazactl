@@ -4,6 +4,132 @@ import sys
 import time
 
 
+def run_cmd(cmd):
+
+    curr_time = time.strftime("%I:%M:%S %p", time.localtime())
+    print(f"\n,---------,-\n| COMMAND: {curr_time} : {cmd}\n'---------'-")
+
+    ctl_out = subprocess.run(cmd, capture_output=True)
+
+    out = ""
+    if ctl_out.stdout:
+        out = ctl_out.stdout.decode("utf-8")
+
+    err = ""
+    if ctl_out.stderr:
+        err = ctl_out.stderr.decode("utf-8").strip()
+
+    return out, err
+
+
+def run_and_check(venv_dir, args, expect_msg, expect_error_msg, fail_msg):
+
+    command = [f"{venv_dir}/bin/primazactl"]
+    if args:
+        command += args
+    ctl_out, ctl_err = run_cmd(command)
+
+    outcome = True
+
+    if expect_msg:
+        if ctl_out:
+            print(f"Response was:\n{ctl_out}")
+            if expect_msg in ctl_out:
+                print(f"[PASS] args: {args}")
+            else:
+                print(f"[FAIL] args: {args} : {fail_msg}")
+                outcome = False
+        else:
+            print(f"[FAIL] args: {args} : {fail_msg}")
+            outcome = False
+
+    if expect_error_msg:
+        if ctl_err:
+            print(f"Error response was:\n{ctl_err}")
+            if expect_error_msg in ctl_err:
+                print(f"[PASS] args: {args}")
+            else:
+                print(f"[FAIL] args: {args} : {fail_msg}")
+                outcome = False
+        else:
+            print(f"[FAIL] args: {args} : {fail_msg}")
+            outcome = False
+
+    return outcome
+
+
+def test_args(venv_dir):
+
+    outcome = True
+    expect_error_msg = "arguments are required: action, install_type"
+    fail_msg = "unexpected response to no arguments"
+    outcome = outcome & run_and_check(venv_dir, None, None,
+                                      expect_error_msg, fail_msg)
+
+    args = ["install"]
+    expect_error_msg = "arguments are required: install_type"
+    fail_msg = "unexpected response to single argument"
+    outcome = outcome & run_and_check(venv_dir, args, None,
+                                      expect_error_msg, fail_msg)
+
+    args = ["drink"]
+    expect_error_msg = " argument action: invalid choice: 'drink'"
+    fail_msg = "unexpected response invalid action"
+    outcome = outcome & run_and_check(venv_dir, args, None,
+                                      expect_error_msg, fail_msg)
+
+    args = ["install", "marker"]
+    expect_error_msg = "argument install_type: invalid choice: 'marker'"
+    fail_msg = "unexpected response to nad install type"
+    outcome = outcome & run_and_check(venv_dir, args, None,
+                                      expect_error_msg, fail_msg)
+
+    return outcome
+
+
+def test_main_install(venv_dir, config, cluster):
+
+    command = [f"{venv_dir}/bin/primazactl",
+               "install", "main",
+               "-f", config,
+               "-v", venv_dir,
+               "-c", cluster]
+    out, err = run_cmd(command)
+
+    if err:
+        print(f"[FAIL] Unexpected error response: {err}")
+        return False
+
+    outcome = True
+    for i in range(1, 50):
+        pods, err = run_cmd(["kubectl", "get", "pods", "-n",
+                            "primaza-system"])
+
+        if pods:
+            print(pods)
+            if "ContainerCreating" not in pods:
+                if "ImagePullBackOff" in pods or "ErrImagePull" in pods:
+                    print("[FAIL] primaza main failed to install")
+                    outcome = False
+                break
+        if err:
+            print(f"[FAIL]: {err}")
+            outcome = False
+            break
+        time.sleep(1)
+
+    if not outcome:
+        time.sleep(5)
+        pods, err = run_cmd(["kubectl", "describe",
+                            "pods", "-n", "primaza-system"])
+        if pods:
+            print(pods)
+        if err:
+            print(err)
+
+    return outcome
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog='runtest',
@@ -22,44 +148,14 @@ def main():
 
     args = parser.parse_args()
 
-    ctl_out = subprocess.run([f"{args.venv_dir}/bin/primazactl",
-                              "install", "main",
-                              "-f", args.primaza_config,
-                              "-v", args.venv_dir,
-                              "-c", args.cluster_name])
+    outcome = test_args(args.venv_dir)
+    outcome = outcome & test_main_install(args.venv_dir, args.primaza_config,
+                                          args.cluster_name)
 
-    if ctl_out.stdout:
-        out = ctl_out.stdout.decode("utf-8")
-        print(out)
-    if ctl_out.stderr:
-        err = ctl_out.stderr.decode("utf-8").strip()
-        if err:
-            print("[FAIL]: {err}")
-            sys.exit(1)
-
-    for i in range(1, 50):
-        pods = subprocess.run(["kubectl", "get", "pods", "-n",
-                               "primaza-system"], capture_output=True)
-        print(f'{i} {time.strftime("%I:%M:%S %p", time.localtime())}. '
-              f'kubectl get pods -n primaza-system:')
-        pods_out = pods.stdout.decode("utf-8")
-        print(pods_out)
-        err = pods.stderr.decode("utf-8").strip()
-        if err:
-            print("[FAIL]: {err}")
-            sys.exit(1)
-        time.sleep(1)
-
-    time.sleep(5)
-    pods = subprocess.run(["kubectl", "describe",
-                           "pods", "-n", "primaza-system"],
-                          capture_output=True)
-
-    print("kubectl describe pods -n primaza-system:")
-    print(pods.stdout.decode("utf-8"))
-    err = pods.stderr.decode("utf-8").strip()
-    if err:
-        print("[FAIL]: {err}")
+    if outcome:
+        print("[SUCCESS] All tests passed")
+    else:
+        print("[FAILED] One or more tests failed")
         sys.exit(1)
 
 
