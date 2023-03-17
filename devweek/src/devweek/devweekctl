@@ -1,0 +1,612 @@
+#!/usr/bin/env python3
+
+# Copyright 2018 The Kubernetes Authors.
+#    - act_from_yaml
+#    - create_from_dict
+#    - create_from_yaml_single_item
+#    - FailToCreateError
+#
+# Copyright 2023 Red Hat
+#
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+from kubernetes import client, config
+import argparse
+import base64
+import re
+import os
+import yaml
+from pprint import pprint
+
+PRIMAZA_MAIN = "main"
+PRIMAZA_WORKER = "worker"
+UPPER_FOLLOWED_BY_LOWER_RE = re.compile('(.)([A-Z][a-z]+)')
+LOWER_OR_NUM_FOLLOWED_BY_UPPER_RE = re.compile('([a-z0-9])([A-Z])')
+
+
+def check_pod(v1,namespace,full=False):
+    print("\n\tCheck Primaza pod:")
+    try:
+        ret = v1.list_namespaced_pod(namespace)
+        for item in ret.items:
+            print(
+                "\t\tFound primaza pod:\n\t\t\thost: %s\n\t\t\tnamespace: %s\n\t\t\tname: %s\n\t\t\tnode name: %s" %
+                (item.status.host_ip,
+                 item.metadata.namespace,
+                 item.metadata.name,
+                 item.spec.node_name))
+
+            for container_status in item.status.container_statuses:
+                if "primaza" in container_status.image:
+                    print("\t\tPrimaza pod status:\n\t\t\timage :%s\n\t\t\tname:%s\n\t\t\tready:%s\n\t\t\tstarted: %s\n\t\t\tstate: %s" %
+                          (container_status.image,
+                           container_status.name,
+                           container_status.ready,
+                           container_status.started,
+                           container_status.state))
+        if full:
+            print("\n\nFull primaza pods:\n:")
+            pprint(ret)
+    except client.exceptions.ApiException as api_exception:
+        body = yaml.safe_load(api_exception.body)
+        if "message" in body:
+            print(f'\t\tError: {body["message"]}')
+        else:
+            print(f'\t\tError: {body}')
+
+def check_namespace(v1,namespace,full=False):
+    print("\n\tCheck primaza namespace:")
+    try:
+        api_response = v1.list_namespace()
+        for item in api_response.items:
+            if item.metadata.name == namespace:
+                print(f"\t\tPrimaza Namespace: {item.metadata.name} is {item.status.phase}")
+        if full:
+            print("\n\nFull primaza namespace:\n:")
+            pprint(api_response)
+    except client.exceptions.ApiException as api_exception:
+        body = yaml.safe_load(api_exception.body)
+        if "message" in body:
+            print(f'\t\tError: {body["message"]}')
+        else:
+            print(f'\t\tError: {body}')
+
+
+def check_primaza_controller_manager(cobj1,namespace,full=False):
+    print("\n\tCheck primaza controller manager:")
+    try:
+        objs = cobj1.get_namespaced_custom_object(group="apps",
+                                             version="v1",
+                                             namespace=namespace,
+                                             plural="deployments",
+                                             name= "primaza-controller-manager")
+
+        for condition in objs["status"]["conditions"]:
+            if condition["type"] == "Available":
+                print(f"\t\tprimaza-controller-manager is {condition['type']}")
+            else:
+                print(f"\t\tprimaza-controller-manager is {condition['type']}, message: {condition['message']}")
+        if full:
+            print("\n\nFull primaza controller manager:\n:")
+            pprint(objs)
+    except client.exceptions.ApiException as api_exception:
+        body = yaml.safe_load(api_exception.body)
+        if "message" in body:
+            print(f'\t\tError: {body["message"]}')
+        else:
+            print(f'\t\tError: {body}')
+
+
+
+def check_primaza_controller_manager_metrics_service(v1,namespace,full=False):
+    print("\n\tCheck primaza metrics service:")
+    try:
+        service = v1.read_namespaced_service("primaza-controller-manager-metrics-service",namespace)
+        print(f"\t\tprimaza metrics service found: {service.metadata.name}")
+        print(f"\t\tstatus: {service.status}")
+        if full:
+            print("\n\nFull metrics service:\n:")
+            pprint(service)
+    except client.exceptions.ApiException as api_exception:
+        body = yaml.safe_load(api_exception.body)
+        if "message" in body:
+            print(f'\t\tError: {body["message"]}')
+        else:
+            print(f'\t\tError: {body}')
+
+
+def check_service_account(v1,namespace,full=False):
+    print("\n\tCheck primaza service account:")
+    try:
+        account = v1.read_namespaced_service_account("primaza-controller-manager", namespace)
+        print(f"\t\tprimaza service account found: {account.metadata.name}")
+        if full:
+            print("\n\nFull service account:\n:")
+            pprint(account)
+    except client.exceptions.ApiException as api_exception:
+        body = yaml.safe_load(api_exception.body)
+        if "message" in body:
+            print(f'\t\tError: {body["message"]}')
+        else:
+            print(f'\t\tError: {body}')
+
+
+def cluster_role(rbac,action="check",full=False):
+    try:
+        if action == "delete":
+            print("\n\tDelete cluster role:")
+            rbac.delete_cluster_role(name="primaza")
+            print(f"\t\tcluster role deleted")
+        else:
+            print("\n\tCheck cluster role:")
+            role = rbac.read_cluster_role(name="primaza")
+            print(f"\t\tcluster role found : {role.metadata.name}")
+            if full:
+                print("\n\nFull cluster role:\n:")
+                pprint(role)
+    except client.exceptions.ApiException as api_exception:
+        body = yaml.safe_load(api_exception.body)
+        if "message" in body:
+            print(f'\t\tError: {body["message"]}')
+        else:
+            print(f'\t\tError: {body}')
+
+
+def cluster_role_binding(rbac,action="check",full=False):
+    try:
+        if action == "delete":
+            print("\n\tDelete cluster role binding:")
+            rbac.delete_cluster_role_binding(name="primaza-primaza")
+            print(f"\t\tcluster role binding deleted")
+        else:
+            print("\n\tCheck cluster role binding:")
+            binding = rbac.read_cluster_role_binding(name="primaza-primaza")
+            print(f"\t\tcluster role binding found: {binding.metadata.name}")
+            if full:
+                print("\n\nFull cluster role binding:\n:")
+                pprint(binding)
+    except client.exceptions.ApiException as api_exception:
+        body = yaml.safe_load(api_exception.body)
+        if "message" in body:
+            print(f'\t\tError: {body["message"]}')
+        else:
+            print(f'\t\tError: {body}')
+
+
+
+def get_logs(v1,namespace,errors_only=False):
+    try:
+        ret = v1.list_namespaced_pod(namespace)
+        for item in ret.items:
+            log_name = item.metadata.name
+            for container_status in item.status.container_statuses:
+                if "primaza" in container_status.image:
+                    logs = v1.read_namespaced_pod_log(name=log_name,namespace=namespace,container=container_status.name)
+                    if errors_only:
+                        errors = []
+                        for logentry in logs.splitlines():
+                           log_fields = logentry.split()
+                           if len(log_fields) > 1:
+                                if log_fields[1] == "ERROR":
+                                    errors.append(f"{logentry}/n")
+                        if errors:
+                            print(f"\nErrors in the logs for pod {log_name} and container {container_status.name}\n" )
+                            for error in errors:
+                                print(error)
+                        else:
+                            print(f"\nNo Errors were found in the logs for pod {log_name} and container {container_status.name}\n" )
+                    else:
+                        print(f"\nlogs for pod {log_name} and container {container_status.name}\n" )
+                        print(logs)
+
+    except client.exceptions.ApiException as api_exception:
+        body = yaml.safe_load(api_exception.body)
+        if "message" in body:
+            print(f'\t\tError: {body["message"]}')
+        else:
+            print(f'\t\tError: {body}')
+
+
+
+def worker_csr(v1,action="check",full=False):
+    try:
+        if action == "delete":
+            print("\n\tDelete worker certificate signing request:")
+            v1.delete_certificate_signing_request(name="primaza")
+            print(f"\t\tworker certificate signing request deleted")
+        else:
+            print("\n\tCheck worker certificate signing request:")
+            certificates = v1.read_certificate_signing_request("primaza")
+            for condition in certificates.status.conditions:
+                print(f"\t\tcsr is {condition.type}")
+            if full:
+                print("\n\nFull certificates:\n:")
+                pprint(certificates)
+    except client.exceptions.ApiException as api_exception:
+        body = yaml.safe_load(api_exception.body)
+        if "message" in body:
+            print(f'\t\tError: {body["message"]}')
+        else:
+            print(f'\t\tError: {body}')
+
+
+def main_secret(v1,namespace,action="check",full=False):
+    try:
+        if action == "delete":
+            print("\n\tDelete main secret:")
+            v1.delete_namespaced_secret("primaza-primaza.environment-kubeconfig",namespace)
+            print(f"\t\tmain secret deleted")
+        else:
+            print("\n\tCheck main secret:")
+            sec = v1.read_namespaced_secret("primaza-primaza.environment-kubeconfig",namespace)
+            print(f"\t\tSecret found:\n\t\t\tname: {sec.metadata.name}\n\t\t\tnamespace: {sec.metadata.namespace}")
+            if full:
+                print("\n\nFull secret:\n:")
+                pprint(sec)
+                print("\n\nsecret kubeconfig decoded\n:")
+                pprint(base64.b64decode(sec.data["kubeconfig"].encode("utf8")).decode('utf8'))
+    except client.exceptions.ApiException as api_exception:
+        body = yaml.safe_load(api_exception.body)
+        if "message" in body:
+            print(f'\t\tError: {body["message"]}')
+        else:
+            print(f'\t\tError: {body}')
+
+
+def cluster_environment(cobj,namespace,action="check",full=False):
+    try:
+        if action == "delete":
+            print("\n\tDelete cluster:")
+            cobj.delete_namespaced_custom_object(group="primaza.io",
+                                                 version="v1alpha1",
+                                                 namespace=namespace,
+                                                 plural="clusterenvironments",
+                                                 name= "primaza.environment")
+            print(f"\t\tworker certificate signing request deleted")
+        else:
+            print("\n\tCheck cluster environment:")
+            obj = cobj.get_namespaced_custom_object(group="primaza.io",
+                                                     version="v1alpha1",
+                                                     namespace=namespace,
+                                                     plural="clusterenvironments",
+                                                     name= "primaza.environment")
+
+            print(f"\t\tCluster environment found:\n\t\t\tname: {obj['metadata']['name']}\n\t\t\tnamespace: {obj['metadata']['namespace']}\n\t\t\tsecret: {obj['spec']['clusterContextSecret']}")
+            if full:
+                print("\n\n\nFull cluster environment:\n:")
+                pprint(obj)
+    except client.exceptions.ApiException as api_exception:
+        body = yaml.safe_load(api_exception.body)
+        if "message" in body:
+            print(f'\t\tError: {body["message"]}')
+        else:
+            print(f'\t\tError: {body}')
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog='devweekctl',
+        description=f'provides some interesting functions for  {PRIMAZA_MAIN} and '
+                    f'{PRIMAZA_WORKER} on clusters')
+
+    parser.add_argument("action", type=str,
+                        choices=["install", "check", "logs", "uninstall"],
+                        help='type of action to perform.')
+
+    parser.add_argument('install_type', type=str,
+                        choices=[PRIMAZA_MAIN, PRIMAZA_WORKER],
+                        help=f'specify {PRIMAZA_MAIN} or {PRIMAZA_WORKER}.')
+
+    parser.add_argument("-e", "--errors_only", required=False,
+                        action=argparse.BooleanOptionalAction,
+                        help="Set to get only errors from logs")
+
+    parser.add_argument("-f", "--full_objects", required=False,
+                        action=argparse.BooleanOptionalAction,
+                        help="check command output full objects")
+
+    args = parser.parse_args()
+
+    config.load_kube_config(context="kind-primazactl-main-test")
+    main_api = client.ApiClient()
+    main_v1 = client.CoreV1Api()
+    main_cobj = client.CustomObjectsApi(client.ApiClient())
+
+    config.load_kube_config(context="kind-primazactl-worker-test")
+    worker_api = client.ApiClient()
+    worker_certv1 = client.CertificatesV1Api()
+    worker_rbac =  client.RbacAuthorizationV1Api(client.ApiClient())
+
+    namespace = "primaza-system"
+
+    if args.action == "install":
+        if args.install_type == "main":
+            print("install main on cluster kind-primazactl-main-test")
+            act_from_yaml(main_api, action="create", yaml_file="/Users/martinmulholland/primaza/primazactl/devweek/config/primaza_config_latest.yaml")
+        else:
+            print("install main on cluster kind-primazactl-worker-test")
+            act_from_yaml(worker_api, action="create", yaml_file="/Users/martinmulholland/primaza/primazactl/devweek/config/worker_config_latest.yaml")
+    elif args.action == "check":
+        if args.install_type == "main":
+            print("Check main install")
+            check_pod(main_v1,namespace,args.full_objects)
+            check_namespace(main_v1,namespace,args.full_objects)
+            check_primaza_controller_manager(main_cobj,namespace,args.full_objects)
+            check_primaza_controller_manager_metrics_service(main_v1,namespace,args.full_objects)
+            check_service_account(main_v1,namespace,args.full_objects)
+            print("\n\tRead main manifest installed resources")
+            act_from_yaml(main_api, action="read", yaml_file="/Users/martinmulholland/primaza/primazactl/devweek/config/primaza_config_latest.yaml")
+        else:
+            print("Check worker install")
+            worker_csr(worker_certv1, "check", args.full_objects)
+            cluster_role(worker_rbac, "check", args.full_objects)
+            cluster_role_binding(worker_rbac, "check", args.full_objects)
+            main_secret(main_v1, namespace, "check", args.full_objects)
+            cluster_environment(main_cobj, namespace, "check", args.full_objects)
+            print("\n\tRead worker manifest installed resources")
+            act_from_yaml(worker_api, action="read", yaml_file="/Users/martinmulholland/primaza/primazactl/devweek/config/worker_config_latest.yaml")
+    elif args.action == "logs":
+        if args.install_type == "main":
+            print(f"Get main logs. error only={args.errors_only}")
+            get_logs(main_v1,namespace,args.errors_only)
+        else:
+            print("sorry, worker logs not available")
+    elif args.action == "uninstall":
+        if args.install_type == "main":
+            print("Uninstall main from cluster kind-primazactl-main-test")
+            act_from_yaml(main_api, action="delete", yaml_file="/Users/martinmulholland/primaza/primazactl/devweek/config/primaza_config_latest.yaml")
+        else:
+            print("Uninstall worker from cluster kind-primazactl-worker-test")
+            cluster_environment(main_cobj, namespace, "delete", args.full_objects)
+            main_secret(main_v1, namespace, "delete", args.full_objects)
+            cluster_role_binding(worker_rbac, "delete", args.full_objects)
+            cluster_role(worker_rbac, "delete", args.full_objects)
+            worker_csr(worker_certv1, "delete", args.full_objects)
+            print("\n\tDelete object using manifest:")
+            act_from_yaml(worker_api, action="delete", yaml_file="/Users/martinmulholland/primaza/primazactl/devweek/config/worker_config_latest.yaml")
+    else:
+        print(f"Invalid action {args.action}")
+
+
+## Code below taken from: https://github.com/kubernetes-client/python/blob/master/kubernetes/utils/create_from_yaml.py
+## Modified by RedHat to include read and delete functionality
+def act_from_yaml(
+        k8s_client,
+        action="create",
+        yaml_file=None,
+        yaml_objects=None,
+        verbose=False,
+        namespace="default",
+        **kwargs):
+    """
+    Perform an action from a yaml file. Pass True for verbose to
+    print confirmation information.
+    Input:
+    yaml_file: string. Contains the path to yaml file.
+    k8s_client: an ApiClient object, initialized with the client args.
+    yaml_objects: List[dict]. Optional list of YAML objects; used instead
+        of reading the `yaml_file`. Default is None.
+    verbose: If True, print confirmation from the create action.
+        Default is False.
+    namespace: string. Contains the namespace to create all
+        resources inside. The namespace must preexist otherwise
+        the resource creation will fail. If the API object in
+        the yaml file already contains a namespace definition
+        this parameter has no effect.
+
+    Available parameters for creating <kind>:
+    :param async_req bool
+    :param bool include_uninitialized: If true, partially initialized
+        resources are included in the response.
+    :param str pretty: If 'true', then the output is pretty printed.
+    :param str dry_run: When present, indicates that modifications
+        should not be persisted. An invalid or unrecognized dryRun
+        directive will result in an error response and no further
+        processing of the request.
+        Valid values are: - All: all dry run stages will be processed
+
+    Returns:
+        The created kubernetes API objects.
+
+    Raises:
+        FailToCreateError which holds list of `client.rest.ApiException`
+        instances for each object that failed to create.
+    """
+
+    def create_with(objects,act):
+        failures = []
+        k8s_objects = []
+        for yml_document in objects:
+            if yml_document is None:
+                continue
+            try:
+                created = create_from_dict(k8s_client, yml_document, act, verbose,
+                                           namespace=namespace,
+                                           **kwargs)
+                k8s_objects.append(created)
+            except FailToCreateError as failure:
+                failures.extend(failure.api_exceptions)
+        if failures:
+            raise FailToCreateError(failures)
+        return k8s_objects
+
+    if yaml_objects:
+        yml_document_all = yaml_objects
+        return create_with(yml_document_all,action)
+    elif yaml_file:
+        with open(os.path.abspath(yaml_file)) as f:
+            yml_document_all = yaml.safe_load_all(f)
+            return create_with(yml_document_all,action)
+    else:
+        raise ValueError(
+            'One of `yaml_file` or `yaml_objects` arguments must be provided')
+
+
+def create_from_dict(k8s_client, data, action="create", verbose=False, namespace='default',
+                     **kwargs):
+    """
+    Perform an action from a dictionary containing valid kubernetes
+    API object (i.e. List, Service, etc).
+
+    Input:
+    k8s_client: an ApiClient object, initialized with the client args.
+    data: a dictionary holding valid kubernetes objects
+    verbose: If True, print confirmation from the create action.
+        Default is False.
+    namespace: string. Contains the namespace to create all
+        resources inside. The namespace must preexist otherwise
+        the resource creation will fail. If the API object in
+        the yaml file already contains a namespace definition
+        this parameter has no effect.
+
+    Returns:
+        The created kubernetes API objects.
+
+    Raises:
+        FailToCreateError which holds list of `client.rest.ApiException`
+        instances for each object that failed to create.
+    """
+    # If it is a list type, will need to iterate its items
+    api_exceptions = []
+    k8s_objects = []
+
+    if "List" in data["kind"]:
+        # Could be "List" or "Pod/Service/...List"
+        # This is a list type. iterate within its items
+        kind = data["kind"].replace("List", "")
+        for yml_object in data["items"]:
+            # Mitigate cases when server returns a xxxList object
+            # See kubernetes-client/python#586
+            if kind != "":
+                yml_object["apiVersion"] = data["apiVersion"]
+                yml_object["kind"] = kind
+            try:
+                created = create_from_yaml_single_item(
+                    k8s_client, yml_object, action, verbose, namespace=namespace,
+                    **kwargs)
+                k8s_objects.append(created)
+            except client.rest.ApiException as api_exception:
+                api_exceptions.append(api_exception)
+    else:
+        # This is a single object. Call the single item method
+        try:
+            created = create_from_yaml_single_item(
+                k8s_client, data, action, verbose, namespace=namespace, **kwargs)
+            k8s_objects.append(created)
+        except client.rest.ApiException as api_exception:
+            api_exceptions.append(api_exception)
+
+    # In case we have exceptions waiting for us, raise them
+    if api_exceptions:
+        fail_exceptions = []
+        for api_exception in api_exceptions:
+            body = yaml.safe_load(api_exception.body)
+            if action == "create" and body["reason"] == "AlreadyExists":
+                print(f'create: {body["message"]}')
+            elif action == "read" and body["reason"] == "NotFound":
+                print(f'read: {body["message"]}')
+            elif action == "delete" and body["reason"] == "NotFound":
+                print(f'delete: {body["message"]}')
+            else:
+                fail_exceptions.append(api_exception)
+        if fail_exceptions:
+            raise FailToCreateError(api_exceptions)
+
+    return k8s_objects
+
+
+def create_from_yaml_single_item(
+        k8s_client, yml_object, action ="create", verbose=False, **kwargs):
+    group, _, version = yml_object["apiVersion"].partition("/")
+    if version == "":
+        version = group
+        group = "core"
+    #print(f"1. Group: {group}, Version: {version}")
+    # Take care for the case e.g. api_type is "apiextensions.k8s.io"
+    # Only replace the last instance
+    group = "".join(group.rsplit(".k8s.io", 1))
+    #print(f"2. Group: {group}, Version: {version}")
+    # convert group name from DNS subdomain format to
+    # python class name convention
+    group = "".join(word.capitalize() for word in group.split('.'))
+    #print(f"3. Group: {group}, Version: {version}")
+    fcn_to_call = "{0}{1}Api".format(group, version.capitalize())
+    #print(f"Function to call {fcn_to_call}")
+    k8s_api = getattr(client, fcn_to_call)(k8s_client)
+    #print(f"k8s_api to call {k8s_api}")
+    # Replace CamelCased action_type into snake_case
+    kind = yml_object["kind"]
+    #print(f"1. kind: {kind}")
+    kind = UPPER_FOLLOWED_BY_LOWER_RE.sub(r'\1_\2', kind)
+    #print(f"2. kind: {kind}")
+    kind = LOWER_OR_NUM_FOLLOWED_BY_UPPER_RE.sub(r'\1_\2', kind).lower()
+    #print(f"3. kind: {kind}")
+    # Expect the user to create namespaced objects more often
+    if "namespace" in yml_object["metadata"]:
+        namespace = yml_object["metadata"]["namespace"]
+        #print(f"Namespace: {namespace}")
+    if hasattr(k8s_api, "{0}_namespaced_{1}".format(action,kind)):
+        # Decide which namespace we are going to put the object in,
+        # if any
+        #print(f"k8s has {'{0}_namespaced_{1}'.format(action,kind)}")
+        if namespace:
+            kwargs['namespace'] = namespace
+            #print(f"Namespace: {namespace}")
+        if action == "create":
+            #print(f"call create_namespaced_{kind}")
+            resp = getattr(k8s_api, "{0}_namespaced_{1}".format(action,kind))(
+                body=yml_object, **kwargs)
+        else:
+            resp = getattr(k8s_api, "{0}_namespaced_{1}".format(action,kind))(
+                name=yml_object["metadata"]["name"], **kwargs)
+    elif hasattr(k8s_api, "{0}_{1}".format(action,kind)):
+        #print(f"k8s has {'{0}_{1}'.format(action,kind)}")
+        kwargs.pop('namespace', None)
+        #print(f'no namespace so call: {"{0}_{1}".format(action,kind)}')
+        if action == "create":
+            resp = getattr(k8s_api, "{0}_{1}".format(action,kind))(
+                body=yml_object, **kwargs)
+        else:
+            resp = getattr(k8s_api, "{0}_{1}".format(action,kind))(
+                name=yml_object["metadata"]["name"], **kwargs)
+    else:
+        print(f"Error: method for {action} of {kind} not found")
+
+    msg = "{0} {1} {2} success.".format(action,kind,yml_object["metadata"]["name"])
+    if verbose and hasattr(resp, 'status'):
+        msg += " status='{0}'".format(str(resp.status))
+    print(f"{msg}")
+    return resp
+
+
+class FailToCreateError(Exception):
+    """
+    An exception class for handling error if an error occurred when
+    handling a yaml file.
+    """
+
+    def __init__(self, api_exceptions):
+        self.api_exceptions = api_exceptions
+
+    def __str__(self):
+        msg = ""
+        for api_exception in self.api_exceptions:
+            msg += "Error from server ({0}): {1}".format(
+                    api_exception.reason, api_exception.body)
+        return msg
+
+
+
+if __name__ == '__main__':
+    main()        
