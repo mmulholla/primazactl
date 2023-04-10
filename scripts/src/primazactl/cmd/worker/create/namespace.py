@@ -86,7 +86,7 @@ def __create_namespace(args, type):
             cluster_environment=args.cluster_environment,
         )
 
-        main_user = main.create_primaza_service_account(
+        main_user = main.create_primaza_identity(
             args.cluster_environment)
         kcfg = main.get_kubeconfig(main_user, args.cluster_name)
 

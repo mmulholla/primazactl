@@ -52,12 +52,12 @@ class WorkerNamespace(PrimazaCluster):
         self.kube_namespace.create()
 
         # Request a new service account from primaza main
-        sa_name = self.main.create_primaza_service_account(
+        main_identity = self.main.create_primaza_identity(
             self.cluster_environment,
             self.type)
 
         # Get kubeconfig with secret from service accounf
-        kc = self.main.get_kubeconfig(sa_name, self.cluster_name)
+        kc = self.main.get_kubeconfig(main_identity, self.cluster_name)
 
         # - in the created namespace, create the Secret
         #     'primaza-auth-$CLUSTER_ENVIRONMENT' the Worker key

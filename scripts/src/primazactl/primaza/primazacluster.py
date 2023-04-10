@@ -2,7 +2,7 @@ import yaml
 from typing import Dict, Tuple
 from primazactl.utils import logger
 from primazactl.utils.command import Command
-from primazactl.identity import kubeidentity
+from primazactl.identity.kubeidentity import KubeIdentity
 from primazactl.kube.secret import Secret
 from primazactl.utils import kubeconfig
 from primazactl.utils.kubeconfigwrapper import KubeConfigWrapper
@@ -47,25 +47,23 @@ class PrimazaCluster(object):
             logger.log_info("new cluster url not found")
             return ""
 
-    def get_kubeconfig(self, id: str, other_cluster_name) -> Dict:
-        logger.log_entry(f"id: {id}, "
+    def get_kubeconfig(self, identity: KubeIdentity, other_cluster_name) -> Dict:
+        logger.log_entry(f"id: {identity.identity}, "
                          f"other_cluster_name: {other_cluster_name}")
         server_url = self.get_updated_server_url() \
             if self.cluster_name != other_cluster_name \
             else None
 
-        return kubeidentity.get_identity_kubeconfig(
-            self.kubeconfig,
-            id,
-            self.namespace,
-            server_url)
+        return identity.get_kubeconfig(self.kubeconfig, server_url)
 
-    def create_service_account(self, user: str = None):
+    def create_identity(self, user: str = None) -> KubeIdentity:
         logger.log_entry()
         if user:
             self.user = user
         api_client = self.kubeconfig.get_api_client()
-        kubeidentity.create_identity(api_client, self.namespace, self.user)
+        identity = KubeIdentity(api_client, self.user, self.namespace)
+        identity.create()
+        return identity
 
     def create_namespaced_secret(self, secret_name: str, kubeconfig: str):
         """

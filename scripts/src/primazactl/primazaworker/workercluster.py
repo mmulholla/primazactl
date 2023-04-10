@@ -67,11 +67,11 @@ class WorkerCluster(PrimazaCluster):
 
         logger.log_info("Create certificate signing request")
 
-        self.create_service_account()
+        identity = self.create_identity()
 
         logger.log_info("Create cluster context secret in main")
         secret_name = f"primaza-{self.cluster_environment}-kubeconfig"
-        cc_kubeconfig = self.get_kubeconfig(WORKER_ID,
+        cc_kubeconfig = self.get_kubeconfig(identity,
                                             self.primaza_main.cluster_name)
         self.primaza_main.create_namespaced_secret(
             secret_name, cc_kubeconfig)
