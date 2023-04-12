@@ -7,23 +7,24 @@ from primazactl.utils.kubeconfigwrapper import KubeConfigWrapper
 from primazactl.kube.serviceaccount import ServiceAccount
 from primazactl.kube.secret import Secret
 
+
 class KubeIdentity(object):
 
     api_client: client = None
     identity: str = None
     namespace: str = None
 
-    def __init__(self,api_client: client, identity: str, namespace: str,):
+    def __init__(self, api_client: client, identity: str, namespace: str,):
         self.api_client = api_client
         self.identity = identity
         self.namespace = namespace
 
-
     def get_kubeconfig(self,
-            kubeconfig: KubeConfigWrapper,
-            serverUrl: str | None) -> str:
+                       kubeconfig: KubeConfigWrapper,
+                       serverUrl: str | None) -> str:
         """
-            Generates the kubeconfig for the Identity (Service Account) `identity`.
+            Generates the kubeconfig for the Identity (Service Account)
+            `identity`.
 
             :type kubeconfig: KubeConfigWrapper
             :param kubeconfig: Kubeconfig to use to connect to the cluster
@@ -50,9 +51,7 @@ class KubeIdentity(object):
 
         return yaml.dump(kcd)
 
-
-    def get_token(self,
-            timeout: int = 60) -> Dict[str, str]:
+    def get_token(self, timeout: int = 60) -> Dict[str, str]:
         """
             Retrieves the Identity's token: the data in the Service Account's
             Secret.
@@ -81,7 +80,6 @@ class KubeIdentity(object):
             timeout=timeout,
         )
         return secret.data
-
 
     def create(self):
 
@@ -120,5 +118,6 @@ class KubeIdentity(object):
                 },
             ),
             type="kubernetes.io/service-account-token",)
-        secret = Secret(self.api_client, f"{self.identity}-key", self.namespace, None)
+        secret = Secret(self.api_client, f"{self.identity}-key",
+                        self.namespace, None)
         secret.create(id_key)

@@ -64,7 +64,6 @@ class MainCluster(PrimazaCluster):
 
         return self.create_identity(sa_name)
 
-
     def write_resource(self, resource, kcw=None):
         logger.log_entry()
         if not kcw:

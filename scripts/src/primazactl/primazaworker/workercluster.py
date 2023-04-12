@@ -106,3 +106,8 @@ class WorkerCluster(PrimazaCluster):
         if err != 0:
             raise RuntimeError("error deploying Primaza's CRDs into "
                                f"cluster {self.cluster_name} : {err}\n")
+
+    def check_worker_roles(self, role_name, role_namespace):
+        return self.check_service_account_roles(self.user,
+                                                role_name,
+                                                role_namespace)

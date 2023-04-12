@@ -101,7 +101,10 @@ def __create_namespace(args, type):
 
         secret_name = f"{WORKER_ID}-{args.cluster_environment}"
         worker.create_namespaced_secret(secret_name, kcfg)
-        print(f"{type} namespace was successfully created")
+
+        namespace.check()
+        print(f"{type} namespace primaza-{type} was successfully created")
+
     except Exception:
         print(traceback.format_exc())
         print(f"\nAn exception creating an {type} namespace",
