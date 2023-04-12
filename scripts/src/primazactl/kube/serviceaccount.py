@@ -16,6 +16,9 @@ class ServiceAccount(object):
         self.identity = idendtity
         self.namespace = namespace
         self.corev1 = client.CoreV1Api(api_client)
+        # sa_user = f"system:serviceaccount:{self.namespace}:{self.identity}"
+        # sa_api_client = client.ApiClient(header_name='Impersonate-User',
+        #                                 header_value=sa_user)
         self.authv1 = client.AuthorizationV1Api(api_client)
 
     def create(self):
@@ -38,7 +41,6 @@ class ServiceAccount(object):
             try:
                 self.corev1.create_namespaced_service_account(
                     self.namespace, sa)
-                logger.log_info(self.read())
             except ApiException as e:
                 logger.log_error("Exception when calling "
                                  "create_namespaced_service_account: %s\n" % e)
@@ -69,25 +71,6 @@ class ServiceAccount(object):
             self.corev1.delete_namespaced_service_account(
                 name=self.identity,
                 namespace=self.namespace)
-        except ApiException as e:
-            if e.reason != "Not Found":
-                logger.log_error("Exception when calling "
-                                 "delete_namespaced_service_account: "
-                                 "%s\n" % e)
-                raise e
-
-    def create_token(self):
-        logger.log_entry(f"Identity: {self.identity}, "
-                         f"namespace: {self.namespace}")
-
-        try:
-            body = client.AuthenticationV1TokenRequest()
-
-            response = self.corev1.create_namespaced_service_account_token(
-                name=self.identity,
-                namespace=self.namespace,
-                body=body)
-            logger.log_info(response)
         except ApiException as e:
             if e.reason != "Not Found":
                 logger.log_error("Exception when calling "
