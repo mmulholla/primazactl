@@ -111,8 +111,8 @@ def test_args(venv_dir):
             "non-existent-cluster",
             "--config",
             "out/config/primaza_config_latest.yaml"]
-    expect_error_msg = "error deploying Primaza's controller" \
-                       " into cluster non-existent-cluster"
+    expect_error_msg = "error deploying Primaza's controller into cluster " \
+                       "non-existent-cluster"
     fail_msg = "unexpected response to bad cluster"
     outcome = outcome & run_and_check(venv_dir, args, None,
                                       expect_error_msg, fail_msg)
@@ -141,7 +141,7 @@ def test_main_install(venv_dir, config, cluster):
         print(f"[{FAIL}] main install pod is not running: {out}")
         return False
 
-    print(f"[{PASS}] main install was successful.")
+    print(f"[{PASS}] main installed.")
     return True
 
 
@@ -203,6 +203,7 @@ def test_worker_install(venv_dir, config, worker_cluster, main_cluster):
         print(f"[{FAIL}] Unexpected response: {out}")
         return False
 
+    print(f"[{PASS}] Worker joined\n\n{out}")
     return True
 
 

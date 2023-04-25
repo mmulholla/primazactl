@@ -15,7 +15,6 @@ class WorkerNamespace(PrimazaCluster):
     type: str = None
     kube_namespace: Namespace = None
     cluster_environment: str = None
-    role_config: str = None
     main: MainCluster = None
     worker: WorkerCluster = None
     secret_name: str = None
@@ -32,7 +31,8 @@ class WorkerNamespace(PrimazaCluster):
         super().__init__(namespace,
                          worker_cluster,
                          f"primaza-{self.type}-agent",
-                         None)
+                         None,
+                         role_config)
 
         self.type = type
         self.main = main
@@ -40,7 +40,6 @@ class WorkerNamespace(PrimazaCluster):
         api_client = self.kubeconfig.get_api_client()
         self.cluster_environment = cluster_environment
         self.kube_namespace = Namespace(api_client, namespace)
-        self.role_config = role_config
         self.secret_name = "primaza-kubeconfig"
 
     def create(self):
@@ -71,7 +70,7 @@ class WorkerNamespace(PrimazaCluster):
         #   namespace and its resources
         # - In the created namespace, create a RoleBinding for binding
         #   the agents' Service Account to the role defined above
-        self.install_roles()
+        self.install_config()
 
         # - In the created namespace, create a Role (named
         #   primaza-application or primaza-service), that will grant
@@ -100,25 +99,33 @@ class WorkerNamespace(PrimazaCluster):
         logger.log_info(f"ce:{ce.body}")
 
     def check(self):
-        logger.log_entry()
+        logger.log_entry(f"Cluster: {self.cluster_name}, "
+                         f"Namespace {self.namespace}")
 
         error_messages = []
         if self.type == APPLICATION:
             error_message = self.check_service_account_roles(
-                "primaza-controller-agentapp",
-                "agentapp-role", self.namespace)
-            if error_message:
-                error_messages.extend(error_message)
-        else:
-            error_message = self.check_service_account_roles(
-                "primaza-controller-agentsvc",
-                "leader-election-role", self.namespace)
+                "primaza-app-agent",
+                "primaza:app:leader-election", self.namespace)
             if error_message:
                 error_messages.extend(error_message)
 
             error_message = self.check_service_account_roles(
-                "primaza-controller-agentsvc",
-                "manager-role", self.namespace)
+                    "primaza-app-agent",
+                    "primaza:app:manager", self.namespace)
+            if error_message:
+                error_messages.extend(error_message)
+
+        else:
+            error_message = self.check_service_account_roles(
+                "primaza-svc-agent",
+                "primaza:svc:leader-election", self.namespace)
+            if error_message:
+                error_messages.extend(error_message)
+
+            error_message = self.check_service_account_roles(
+                "primaza-svc-agent",
+                "primaza:svc:manager", self.namespace)
             if error_message:
                 error_messages.extend(error_message)
 
@@ -139,12 +146,4 @@ class WorkerNamespace(PrimazaCluster):
 
     def install_roles(self):
         logger.log_entry(f"config: {self.role_config}")
-        out, err = self.kubectl_do(f"apply -f {self.role_config}")
-        if err == 0:
-            logger.log_entry("Deploy namespace config completed")
-
-        logger.log_info(out)
-        if err != 0:
-            raise RuntimeError(
-                "error deploying namespace config into "
-                f"cluster {self.cluster_name}")
+        self.install_config()
