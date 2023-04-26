@@ -16,19 +16,23 @@ class MainCluster(PrimazaCluster):
     def __init__(
             self,
             cluster_name: str | None,
+            namespace: str | None,
             kubeconfig_path: str | None,
             config_file: str | None,
             version: str | None):
 
-        super().__init__(PRIMAZA_NAMESPACE,
+        if not namespace:
+            namespace = PRIMAZA_NAMESPACE
+
+        cluster_name = cluster_name \
+            if cluster_name is not None \
+            else KubeConfigWrapper(None, self.kube_config_file).get_context()
+
+        super().__init__(namespace,
                          cluster_name,
                          None,
                          kubeconfig_path,
                          config_file)
-
-        self.cluster_name = cluster_name \
-            if cluster_name is not None \
-            else KubeConfigWrapper(None, self.kube_config_file).get_context()
 
         self.primaza_version = version
 

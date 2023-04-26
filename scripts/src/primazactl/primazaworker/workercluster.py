@@ -25,6 +25,7 @@ class WorkerCluster(PrimazaCluster):
         environment: str,
         cluster_environment: str
     ):
+
         super().__init__(WORKER_NAMESPACE,
                          cluster_name,
                          WORKER_ID,
