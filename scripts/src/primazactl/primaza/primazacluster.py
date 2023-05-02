@@ -9,6 +9,7 @@ from primazactl.kube.access.accessreview import AccessReview
 from primazactl.utils import kubeconfig
 from primazactl.utils.kubeconfigwrapper import KubeConfigWrapper
 from primazactl.kubectl import apply
+from primazactl.utils import names
 
 
 class PrimazaCluster(object):
@@ -16,16 +17,22 @@ class PrimazaCluster(object):
     namespace: str = None
     cluster_name: str = None
     user: str = None
+    user_type: str = None
     kube_config_file: str = None
     kubeconfig: KubeConfigWrapper = None
     config_file: str = None
+    cluster_environment: str = None
 
     def __init__(self, namespace, cluster_name,
-                 user, kubeconfig_path, config_file):
+                 user, user_type,
+                 kubeconfig_path, config_file,
+                 cluster_environment):
         self.namespace = namespace
         self.cluster_name = cluster_name
         self.user = user
+        self.user_type = user_type if user_type else user
         self.config_file = config_file
+        self.cluster_environment = cluster_environment
 
         self.kube_config_file = kubeconfig_path \
             if kubeconfig_path is not None \
@@ -55,7 +62,7 @@ class PrimazaCluster(object):
 
     def get_kubeconfig(self, identity: KubeIdentity,
                        other_cluster_name) -> Dict:
-        logger.log_entry(f"id: {identity.identity}, "
+        logger.log_entry(f"id: {identity.sa_name}, "
                          f"other_cluster_name: {other_cluster_name}")
         server_url = self.get_updated_server_url() \
             if self.cluster_name != other_cluster_name \
@@ -63,25 +70,26 @@ class PrimazaCluster(object):
 
         return identity.get_kubeconfig(self.kubeconfig, server_url)
 
-    def create_identity(self, user: str = None) -> KubeIdentity:
+    def create_identity(self, sa_name: str, key_name: str) -> KubeIdentity:
         logger.log_entry()
-        if user:
-            self.user = user
         api_client = self.kubeconfig.get_api_client()
-        identity = KubeIdentity(api_client, self.user, self.namespace)
+        identity = KubeIdentity(api_client, sa_name, key_name, self.namespace)
         identity.create()
         return identity
 
-    def create_namespaced_secret(self, secret_name: str, kubeconfig: str):
+    def create_namespaced_secret(self, caller_id: str, kubeconfig: str):
         """
         Creates the Primaza's secret
         """
-        logger.log_entry(f"secret_name: {secret_name}, "
+        logger.log_entry(f"caller_id: {caller_id}, "
                          f"namespace: {self.namespace}")
+        secret_name = names.get_kube_secret_name(caller_id,
+                                                 self.user_type)
         api_client = self.kubeconfig.get_api_client()
         secret = Secret(api_client, secret_name,
                         self.namespace, kubeconfig)
         secret.create()
+        return secret_name
 
     def kubeconfig(self) -> KubeConfigWrapper:
         return KubeConfigWrapper(self.cluster_name, self.kube_config_file)

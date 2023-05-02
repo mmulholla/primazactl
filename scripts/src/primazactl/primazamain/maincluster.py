@@ -1,11 +1,11 @@
 
 from primazactl.utils import logger
 from primazactl.utils.kubeconfigwrapper import KubeConfigWrapper
-from primazactl.primazamain.constants import PRIMAZA_NAMESPACE
+from .constants import PRIMAZA_NAMESPACE, PRIMAZA_USER
 from primazactl.primaza.primazacluster import PrimazaCluster
-from primazactl.cmd.worker.create.constants import APPLICATION, SERVICE
 from primazactl.identity.kubeidentity import KubeIdentity
 from .clusterenvironment import ClusterEnvironment
+from primazactl.utils import names
 
 
 class MainCluster(PrimazaCluster):
@@ -30,9 +30,11 @@ class MainCluster(PrimazaCluster):
 
         super().__init__(namespace,
                          cluster_name,
+                         PRIMAZA_USER,
                          None,
                          kubeconfig_path,
-                         config_file)
+                         config_file,
+                         None)
 
         self.primaza_version = version
 
@@ -51,14 +53,19 @@ class MainCluster(PrimazaCluster):
                 f"cluster {self.cluster_name} : {exc}")
 
     def create_primaza_identity(self, cluster_environment: str,
-                                type: str = None) -> KubeIdentity:
-        logger.log_entry(f"type: {type} environment: {cluster_environment}")
-        if type == APPLICATION or type == SERVICE:
-            sa_name = f"primaza-{type}-{cluster_environment}-sa"
-        else:
-            sa_name = f"primaza-{cluster_environment}-{self.namespace}-sa"
+                                user: str = None,
+                                namespace: str = None) -> KubeIdentity:
+        logger.log_entry(f"type: cluster environment: {cluster_environment}")
+        if not user:
+            user = self.user
+        if not namespace:
+            namespace = self.namespace
+        logger.log_info(f"User: {user}, namespace: {namespace}")
+        sa_name, key_name = names.get_identity_names(user,
+                                                     cluster_environment,
+                                                     namespace)
 
-        return self.create_identity(sa_name)
+        return self.create_identity(sa_name, key_name)
 
     def create_cluster_environment(self,
                                    cluster_environment_name,

@@ -4,7 +4,6 @@ import sys
 from primazactl.types import kubernetes_name, existing_file
 from primazactl.primazaworker.workernamespace import WorkerNamespace
 from primazactl.primazaworker.workercluster import WorkerCluster
-from primazactl.primazaworker.constants import WORKER_ID
 from primazactl.primazamain.maincluster import MainCluster
 from primazactl.primazamain.constants import PRIMAZA_NAMESPACE
 from .constants import SERVICE, APPLICATION
@@ -119,8 +118,7 @@ def __create_namespace(args, type):
                                     worker)
         namespace.create()
 
-        secret_name = f"{WORKER_ID}-{args.cluster_environment}"
-        worker.create_namespaced_secret(secret_name, kcfg)
+        worker.create_namespaced_secret(main.user_type, kcfg)
 
         namespace.check()
         print(f"{type} namespace primaza-{type} was successfully created")

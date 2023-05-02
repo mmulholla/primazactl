@@ -4,6 +4,7 @@ from primazactl.utils import logger
 from primazactl.primazamain.maincluster import MainCluster
 from .constants import WORKER_NAMESPACE, WORKER_ID
 from primazactl.primaza.primazacluster import PrimazaCluster
+from primazactl.utils import names
 
 
 class WorkerCluster(PrimazaCluster):
@@ -16,25 +17,26 @@ class WorkerCluster(PrimazaCluster):
     primaza_main: MainCluster = None
 
     def __init__(
-        self,
-        primaza_main: MainCluster,
-        cluster_name: str,
-        kubeconfig_file: str,
-        config_file: str,
-        version: str,
-        environment: str,
-        cluster_environment: str
-    ):
+            self,
+            primaza_main: MainCluster,
+            cluster_name: str,
+            kubeconfig_file: str,
+            config_file: str,
+            version: str,
+            environment: str,
+            cluster_environment: str
+            ):
 
         super().__init__(WORKER_NAMESPACE,
                          cluster_name,
                          WORKER_ID,
+                         cluster_environment,
                          kubeconfig_file,
-                         config_file)
+                         config_file,
+                         cluster_environment)
 
         self.primaza_main = primaza_main
         self.environment = environment
-        self.cluster_environment = cluster_environment
         self.version = version
 
         kcw = KubeConfigWrapper(cluster_name, self.kube_config_file)
@@ -68,14 +70,17 @@ class WorkerCluster(PrimazaCluster):
 
         logger.log_info("Create certificate signing request")
 
-        identity = self.create_identity()
+        sa_name, key_name = names.get_identity_names(self.user,
+                                                     self.primaza_main.namespace,
+                                                     self.cluster_environment)
+
+        identity = self.create_identity(sa_name,key_name)
 
         logger.log_info("Create cluster context secret in main")
-        secret_name = f"primaza-{self.cluster_environment}-kubeconfig"
         cc_kubeconfig = self.get_kubeconfig(identity,
                                             self.primaza_main.cluster_name)
-        self.primaza_main.create_namespaced_secret(
-            secret_name, cc_kubeconfig)
+        secret_name = self.primaza_main.create_namespaced_secret(
+            self.cluster_environment, cc_kubeconfig)
 
         logger.log_info("Create cluster environment in main")
         ce = self.primaza_main.create_cluster_environment(
