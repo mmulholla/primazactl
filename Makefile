@@ -3,16 +3,16 @@
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 0.0.1
+VERSION ?= latest
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
-IMG ?= ghcr.io/primaza/primaza:latest
-IMG_APP ?= ghcr.io/primaza/primaza-agentapp:latest
-IMG_SVC ?= ghcr.io/primaza/primaza-agentsvc:latest
+IMG ?= ghcr.io/primaza/primaza:$(VERSION)
+IMG_APP ?= ghcr.io/primaza/primaza-agentapp:$(VERSION)
+IMG_SVC ?= ghcr.io/primaza/primaza-agentsvc:$(VERSION)
 IMG_APP_LOCAL ?= agentapp:latest
 IMG_SVC_LOCAL ?= agentsvc:latest
 
@@ -85,10 +85,10 @@ $(PRIMAZA_CONFIG_DIR):
 APPLICATION_NAMESPACE ?= primaza-application
 SERVICE_NAMESPACE ?= primaza-service
 
-PRIMAZA_CONFIG_FILE = $(PRIMAZA_CONFIG_DIR)/primaza_config_latest.yaml
-WORKER_CONFIG_FILE = $(PRIMAZA_CONFIG_DIR)/worker_config_latest.yaml
-APPLICATION_AGENT_CONFIG_FILE = $(PRIMAZA_CONFIG_DIR)/application_agent_config_latest.yaml
-SERVICE_AGENT_CONFIG_FILE = $(PRIMAZA_CONFIG_DIR)/service_agent_config_latest.yaml
+PRIMAZA_CONFIG_FILE ?= $(PRIMAZA_CONFIG_DIR)/primaza_config_latest.yaml
+WORKER_CONFIG_FILE ?= $(PRIMAZA_CONFIG_DIR)/worker_config_latest.yaml
+APPLICATION_AGENT_CONFIG_FILE ?= $(PRIMAZA_CONFIG_DIR)/application_agent_config_latest.yaml
+SERVICE_AGENT_CONFIG_FILE ?= $(PRIMAZA_CONFIG_DIR)/service_agent_config_latest.yaml
 
 KIND_CONFIG_DIR ?= $(SCRIPTS_DIR)/src/primazatest/config
 MAIN_KIND_CONFIG_FILE ?= $(KIND_CONFIG_DIR)/kind-main.yaml
