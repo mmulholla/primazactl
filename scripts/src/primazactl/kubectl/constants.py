@@ -1,0 +1,5 @@
+PRIMAZA_CONFIG: str = "primaza_config"
+WORKER_CONFIG: str = "worker_config"
+APP_AGENT_CONFIG: str = "application_agent_config"
+SVC_AGENT_CONFIG: str = "service_agent_config"
+REPOSITORY: str = "primaza/primazactl"
