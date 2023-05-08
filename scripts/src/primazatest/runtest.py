@@ -45,7 +45,7 @@ def run_and_check(venv_dir, args, expect_msg, expect_error_msg, fail_msg):
                 print(f"\n---[{FAIL}] args: {args} : {fail_msg}\n")
                 outcome = False
         else:
-            print(f"\n---[{FAIL}] args: {args} : {fail_msg}\n")
+            print(f"\n---[{FAIL}] args: {args} :  {fail_msg}\n")
             outcome = False
 
     if expect_error_msg:
@@ -54,6 +54,7 @@ def run_and_check(venv_dir, args, expect_msg, expect_error_msg, fail_msg):
             if expect_error_msg in ctl_err:
                 print(f"\n+++[{PASS}] args: {args}\n")
             else:
+                print(f"Expected response to include:\n{expect_error_msg}\n")
                 print(f"\n---[{FAIL}] args: {args} : {fail_msg}\n")
                 outcome = False
         else:
@@ -111,7 +112,7 @@ def test_args(venv_dir):
             "non-existent-cluster",
             "--config",
             "out/config/primaza_config_latest.yaml"]
-    expect_error_msg = "error deploying Primaza's controller into cluster " \
+    expect_error_msg = "Exception getting kubernetes client for cluster " \
                        "non-existent-cluster"
     fail_msg = "unexpected response to bad cluster"
     outcome = outcome & run_and_check(venv_dir, args, None,
