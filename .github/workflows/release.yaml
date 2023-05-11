@@ -37,7 +37,7 @@ jobs:
           # set version based on dispatch type
           if [[ "${{github.event_name}}" == "workflow_dispatch" ]]; then
             echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
-          elif [[ "${{github.ref_type}} == "tag" ]]; then
+          elif [[ "${{github.ref_type}}" == "tag" ]]; then
             echo "VERSION=${{  github.ref_name }}" >> $GITHUB_ENV
           else
             echo "VERSION=latest" >> $GITHUB_ENV
@@ -55,10 +55,13 @@ jobs:
 
       - name: Delete previous release and tag
         if: ${{ env.VERSION == 'latest' }}
-        uses: dev-drprasad/delete-tag-and-release@v0.2.0
+        uses: dev-drprasad/delete-tag-and-release@v0.2.1
         with:
           delete_release: true # default: false
           tag_name: ${{ env.VERSION }} # tag name to delete
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
       - name: Release for tag event
         if: ${{ github.ref_type == 'tag' }}
