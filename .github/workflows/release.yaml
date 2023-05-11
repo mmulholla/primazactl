@@ -32,7 +32,7 @@ jobs:
       - name: Build binary
         run: make single-binary
 
-      - name: Set Version
+      - name: Set Version and Manifests
         run: |
           # set version based on dispatch type
           if [[ "${{github.event_name}}" == "workflow_dispatch" ]]; then
@@ -42,15 +42,16 @@ jobs:
           else
             echo "VERSION=latest" >> $GITHUB_ENV
           fi
+          echo "PRIMAZA_CONFIG_FILE=primaza_main_config_${{ env.VERSION }}.yaml" >> $GITHUB_ENV
+          echo "WORKER_CONFIG_FILE=primaza_worker_config_${{ env.VERSION }}.yaml" >> $GITHUB_ENV
+          echo "APPLICATION_AGENT_CONFIG_FILE=application_agent_config_${{ env.VERSION }}.yaml" >> $GITHUB_ENV
+          echo "SERVICE_AGENT_CONFIG_FILE=service_agent_config_${{ env.VERSION }}.yaml" >> $GITHUB_ENV
+
 
       - name: Test and make manifests
         id: test-and-manifests
         run: |
           # run make test to test and create manifests
-          echo "PRIMAZA_CONFIG_FILE=primaza_main_config_${{ env.VERSION }}.yaml" >> $GITHUB_ENV
-          echo "WORKER_CONFIG_FILE=primaza_worker_config_${{ env.VERSION }}.yaml" >> $GITHUB_ENV
-          echo "APPLICATION_AGENT_CONFIG_FILE=application_agent_config_${{ env.VERSION }}.yaml" >> $GITHUB_ENV
-          echo "SERVICE_AGENT_CONFIG_FILE=service_agent_config_${{ env.VERSION }}.yaml" >> $GITHUB_ENV
           make test
 
       - name: Delete previous release and tag
