@@ -37,7 +37,7 @@ jobs:
           # set version based on dispatch type
           if [[ "${{github.event_name}}" == "workflow_dispatch" ]]; then
             echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
-          elif [[ "${{github.ref_type}} == "tag" ]]; then
+          elif [[ "${{github.ref_type}}" == "tag" ]]; then
             echo "VERSION=${{  github.ref_name }}" >> $GITHUB_ENV
           else
             echo "VERSION=latest" >> $GITHUB_ENV
