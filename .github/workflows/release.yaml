@@ -59,6 +59,9 @@ jobs:
         with:
           delete_release: true # default: false
           tag_name: ${{ env.VERSION }} # tag name to delete
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
       - name: Release for tag event
         if: ${{ github.ref_type == 'tag' }}
