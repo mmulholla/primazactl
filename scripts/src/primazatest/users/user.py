@@ -113,7 +113,7 @@ def get_my_dir():
     my_dir = ""
     prev_dir = ""
     for dir in file_path.parts:
-        if prev_dir == "primazactl" and dir == "out":
+        if prev_dir == "primazactl" and dir in ["out","scripts"]::
             break
         prev_dir = dir
         my_dir = os.path.join(my_dir, dir)
