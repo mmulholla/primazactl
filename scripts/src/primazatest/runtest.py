@@ -1,8 +1,8 @@
 import argparse
 import subprocess
 import sys
-import time
 import os
+import time
 
 PASS = '\033[92mPASS\033[0m'
 SUCCESS = '\033[92mSUCCESS\033[0m'
