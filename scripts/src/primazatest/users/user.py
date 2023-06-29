@@ -111,10 +111,12 @@ def get_my_dir():
     filename = inspect.getframeinfo(inspect.currentframe()).filename
     file_path = Path(os.path.abspath(filename))
     my_dir = ""
+    prev_dir = ""
     for dir in file_path.parts:
-        my_dir = os.path.join(my_dir, dir)
-        if dir == "primazactl":
+        if prev_dir == "primazactl" and dir == "out":
             break
+        prev_dir = dir
+        my_dir = os.path.join(my_dir, dir)
     return os.path.join(my_dir, "scripts/src/primazatest/users")
 
 
