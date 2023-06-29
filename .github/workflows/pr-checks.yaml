@@ -31,4 +31,4 @@ jobs:
         run: make test-local
 
       - name: run test with users
-          run: make test-users
+        run: make test-users
