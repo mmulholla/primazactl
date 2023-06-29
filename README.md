@@ -92,17 +92,20 @@ Primazactl help is organized in a hierarchy with contextual help available for d
 ## Command Summary
 
 - Create tenant
+  - checks user has the permissions required to run the command.
   - creates a specified namespace, default is `primaza-system`.
     - control-plane `primaza-controller-manager`
     - default image installed: `ghcr.io/primaza/primaza:latest`
-  - adds kubernetes resources required by primaza tenant.  
+  - adds kubernetes resources required by primaza tenant.
 - Join cluster
     - requires tenant to be created first.
+    - checks user has the permissions required to run the command.    
     - add kubernetes resources required to join a cluster.
     - creates an [identity](docs/identities.md#identities) which is shared with the primaza tenant.   
     - creates a cluster-environment resource in primaza tenant to enable communication with the joined cluster.
 - Create application-namespace.
     - requires join cluster to be complete first.
+    - checks user has the permissions required to run the command.
     - creates a specified namespace, default is `primaza-application`.
     - creates an [identity](docs/identities.md#identities) in the primaza tenant namespace which is shared with the application namespace.
         - enables primaza tenant to access the namespace
@@ -110,6 +113,7 @@ Primazactl help is organized in a hierarchy with contextual help available for d
     - provides join cluster primaza service account with access to the namespace
 - Create service-namespace.
     - requires join cluster to be complete first.
+    make p- checks user has the permissions required to run the command.
     - creates a specified namespace, default is `primaza-service`.
     - creates an [identity](docs/identities.md#identities) in the primaza tenant namespace which is shared with the service namespace.
         - enables primaza tenant to access the namespace
