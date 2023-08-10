@@ -53,6 +53,8 @@ def run_and_check(venv_dir, args, expect_msg, expect_error_msg, fail_msg):
 
     outcome = True
 
+    print(f"command output:\n{ctl_out}")
+
     if expect_msg:
         if ctl_out:
             print(f"Response was:\n{ctl_out}")
