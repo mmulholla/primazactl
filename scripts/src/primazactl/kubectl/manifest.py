@@ -18,9 +18,12 @@ class Manifest(object):
 
     def __init__(self, namespace: str, path: str,
                  version: str = None, type: str = None):
+        logger.log_entry(f"namespace: {namespace}, path: {path}, "
+                         f"version: {version}, type: {type}")
         self.path = path
         self.namespace = namespace
-        self.version = version
+        if version:
+            self.version = version[1:] if version.startswith("v") else version
         self.type = type
 
     def replace_ns(self, body):
@@ -105,6 +108,7 @@ class Manifest(object):
 
         releases = repo.get_releases()
         latest_release = None
+        latest_version = None
 
         for release in releases:
             logger.log_info(f"release found - name: {release.id}")
@@ -114,16 +118,24 @@ class Manifest(object):
                 if release.tag_name == "latest":
                     return self.__get_config_content(release)
 
-            elif semver.VersionInfo.isvalid(release.tag_name):
-                if self.version and \
-                        semver.compare(self.version, release.tag_name) == 0:
-                    logger.log_info(f"match found: {release.tag_name}")
-                    return self.__get_config_content(release)
-                elif not latest_release or \
-                        semver.compare(release.tag_name,
-                                       latest_release.tag_name) > 1:
-                    logger.log_info(f"later match found: {release.tag_name}")
-                    latest_release = release
+            else:
+                version = release.tag_name[1:] \
+                    if release.tag_name.startswith("v") \
+                    else release.tag_name
+                if semver.VersionInfo.isvalid(version):
+                    if self.version and \
+                            semver.compare(self.version, version) == 0:
+                        logger.log_info(f"match found: {release.tag_name}")
+                        return self.__get_config_content(release)
+                    elif not latest_version or \
+                            semver.compare(version,
+                                           latest_version) > 1:
+                        logger.log_info(f"later match found: {release.tag_name}")
+                        latest_version = version
+                        latest_release = release
+                else:
+                    logger.log_info(f"Ignore release tag {release.tag_name} "
+                                    f"- it is not a valid semver")
 
         if latest_release:
             return self.__get_config_content(latest_release)

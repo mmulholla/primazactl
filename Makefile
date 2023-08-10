@@ -79,18 +79,19 @@ HACK_DIR ?= $(PROJECT_DIR)/hack
 SCRIPTS_DIR = $(PROJECT_DIR)/scripts
 TEMP_DIR = $(OUTPUT_DIR)/temp
 
-PRIMAZA_CONFIG_DIR ?= $(OUTPUT_DIR)/config
+#PRIMAZA_CONFIG_DIR ?= $(OUTPUT_DIR)/config
+PRIMAZA_CONFIG_DIR ?= "config"
 $(PRIMAZA_CONFIG_DIR):
-	mkdir -p $(PRIMAZA_CONFIG_DIR)
+	mkdir -p $(OUTPUT_DIR)/$(PRIMAZA_CONFIG_DIR)
 
 APPLICATION_NAMESPACE ?= primaza-application
 SERVICE_NAMESPACE ?= primaza-service
 SERVICE_ACCOUNT_NAMESPACE ?= worker-sa
 
-PRIMAZA_CONFIG_FILE ?= $(PRIMAZA_CONFIG_DIR)/primaza_config_$(VERSION).yaml
-WORKER_CONFIG_FILE ?= $(PRIMAZA_CONFIG_DIR)/worker_config_$(VERSION).yaml
-APPLICATION_AGENT_CONFIG_FILE ?= $(PRIMAZA_CONFIG_DIR)/application_agent_config_$(VERSION).yaml
-SERVICE_AGENT_CONFIG_FILE ?= $(PRIMAZA_CONFIG_DIR)/service_agent_config_$(VERSION).yaml
+PRIMAZA_CONFIG_FILE ?= $(PRIMAZA_CONFIG_DIR)/control_plane_config_$(VERSION).yaml
+WORKER_CONFIG_FILE ?= $(PRIMAZA_CONFIG_DIR)/crds_config_$(VERSION).yaml
+APPLICATION_AGENT_CONFIG_FILE ?= $(PRIMAZA_CONFIG_DIR)/application_namespace_config_$(VERSION).yaml
+SERVICE_AGENT_CONFIG_FILE ?= $(PRIMAZA_CONFIG_DIR)/service_namespace_config_$(VERSION).yaml
 
 KIND_CONFIG_DIR ?= $(SCRIPTS_DIR)/src/primazatest/config
 TENANT_KIND_CONFIG_FILE ?= $(KIND_CONFIG_DIR)/kind-main.yaml
@@ -205,6 +206,10 @@ lint: primazactl ## Check python code
 .PHONY: test-local
 test-local: setup-test
 	$(PYTHON_VENV_DIR)/bin/primazatest -p $(PYTHON_VENV_DIR) -e $(WORKER_CONFIG_FILE) -f $(PRIMAZA_CONFIG_FILE) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -a $(APPLICATION_AGENT_CONFIG_FILE) -s $(SERVICE_AGENT_CONFIG_FILE) -j $(SERVICE_ACCOUNT_NAMESPACE)
+
+.PHONY: test-version
+test-version: setup-test
+	$(PYTHON_VENV_DIR)/bin/primazatest -p $(PYTHON_VENV_DIR) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -v $(VERSION)
 
 .PHONY: test-released
 test-released:
