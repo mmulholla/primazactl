@@ -10,6 +10,8 @@ on:
         description: "create a version for primazctl"
         required: true
         default: "latest"
+  repository_dispatch:
+    types: [primaza-release]
 
 permissions:
   contents: write
@@ -37,6 +39,8 @@ jobs:
             version=${{ github.event.inputs.version }}
           elif [[ "${{github.ref_type}}" == "tag" ]]; then
             version=${{ github.ref_name }}
+          elif [[ "${{github.event_name}}" == "repository_dispatch" ]]; then
+            version=${{ github.event.client_payload.version }}
           fi
           echo "VERSION=$version" >> $GITHUB_ENV
           echo "PRIMAZA_CTL_VERSION=$version" >> $GITHUB_ENV
