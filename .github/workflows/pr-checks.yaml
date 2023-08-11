@@ -40,9 +40,9 @@ jobs:
           # set version based on job type
           if [[ "${{github.event_name}}" == "repository_dispatch" ]]; then
             primaza_version=${{ github.event.client_payload.version }}
-            echo "primaza_version=$primaza_version" >> $GITHUB_OUPUT
+            echo "primaza_version=$primaza_version" >> $GITHUB_OUTPUT
           else:
-            echo "primaza_version=latest" >> $GITHUB_OUPUT
+            echo "primaza_version=latest" >> $GITHUB_OUTPUT
           fi  
 
       - name: run dry-run
