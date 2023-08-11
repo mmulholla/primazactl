@@ -43,6 +43,7 @@ jobs:
             echo "primaza_version=$primaza_version" >> $GITHUB_OUPUT
           else:
             echo "primaza_version=latest" >> $GITHUB_OUPUT
+          fi  
 
       - name: run dry-run
         env:
