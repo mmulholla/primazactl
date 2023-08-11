@@ -29,11 +29,6 @@ jobs:
       - name: Lint python
         run: make lint
 
-  test:
-    name: Run primazactl tests
-    runs-on: ubuntu-20.04
-    steps:
-
       - name: Set Version
         id: sets-version
         run: |
