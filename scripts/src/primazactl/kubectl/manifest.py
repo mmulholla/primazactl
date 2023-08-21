@@ -130,7 +130,8 @@ class Manifest(object):
                     elif not latest_version or \
                             semver.compare(version,
                                            latest_version) > 1:
-                        logger.log_info(f"later match found: {release.tag_name}")
+                        logger.log_info(f"later match found: "
+                                        f"{release.tag_name}")
                         latest_version = version
                         latest_release = release
                 else:

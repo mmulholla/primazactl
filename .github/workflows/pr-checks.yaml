@@ -4,6 +4,8 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
     branches: [ main ]
+  repository_dispatch:
+    types: [ primazactl-test ]
 
 jobs:
   build:
@@ -13,7 +15,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-            go-version: "^1.19"
+            go-version: "^1.20"
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -27,19 +29,55 @@ jobs:
       - name: Lint python
         run: make lint
 
+      - name: Set Version
+        id: sets-version
+        run: |
+          # set version based on job type
+          if [[ "${{github.event_name}}" == "repository_dispatch" ]]; then
+            primaza_version=${{ github.event.client_payload.version }}
+            echo "primaza_version=$primaza_version" >> $GITHUB_OUTPUT
+          else
+            echo "primaza_version=latest" >> $GITHUB_OUTPUT
+          fi  
+
       - name: run dry-run
+        env:
+          VERSION: ${{ steps.sets-version.outputs.primaza_version }}
         run: make test-dry-run
 
       - name: run test
+        env:
+          VERSION: ${{ steps.sets-version.outputs.primaza_version }}
         run: make test-local-no-setup
 
       - name: run test with users
+        env:
+          VERSION: ${{ steps.sets-version.outputs.primaza_version }}
         run: make test-users
 
       - name: run test with output
+        env:
+          VERSION: ${{ steps.sets-version.outputs.primaza_version }}
         run: make test-output
 
       - name: run apply command
+        env:
+          VERSION: ${{ steps.sets-version.outputs.primaza_version }}
         run: make test-apply
+
+      - name: run test version
+        env:
+          VERSION: ${{ steps.sets-version.outputs.primaza_version }}
+        run: make test-version
+
+      - name: trigger release
+        if: ${{ github.event_name == 'repository_dispatch' }}
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.MM_TOKEN }}
+          repository: mmulholla/primazactl
+          event-type: primazactl-release
+          client-payload: '{"version": "${{ env.VERSION }}"}'
+
 
 
