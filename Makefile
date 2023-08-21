@@ -81,7 +81,7 @@ TEMP_DIR = $(OUTPUT_DIR)/temp
 
 PRIMAZA_CONFIG_DIR ?= $(OUTPUT_DIR)/config
 $(PRIMAZA_CONFIG_DIR):
-	mkdir -p $(OUTPUT_DIR)/$(PRIMAZA_CONFIG_DIR)
+	mkdir -p $(PRIMAZA_CONFIG_DIR)
 
 APPLICATION_NAMESPACE ?= primaza-application
 SERVICE_NAMESPACE ?= primaza-service
