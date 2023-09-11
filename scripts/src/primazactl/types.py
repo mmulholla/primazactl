@@ -13,7 +13,7 @@ def existing_file(arg):
 
 
 def semvertag_or_latest(arg):
-    if arg != "latest":
+    if arg != "latest" and arg != "nightly":
         version = arg[1:] if arg.startswith("v") else arg
         if not semver.VersionInfo.isvalid(version):
             raise ArgumentTypeError(
