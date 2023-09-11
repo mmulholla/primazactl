@@ -699,7 +699,7 @@ def test_dry_run(command_args, dry_run_type):
 
 def test_dry_run_with_options(command_args):
 
-    options_yaml = update_options_file(command_args.options_file)
+    options_yaml = update_options_file(command_args)
     tenant = options_yaml["name"]
     cluster_options = options_yaml["clusterEnvironments"][0]
     cluster_env = cluster_options["name"]
@@ -917,7 +917,7 @@ def check_output(manifest_file, resp):
 
 def test_apply(command_args):
 
-    options_yaml = update_options_file(command_args.options_file)
+    options_yaml = update_options_file(command_args)
     tenant = options_yaml["name"]
     cluster_options = options_yaml["clusterEnvironments"][0]
     sa_n = cluster_options.get("serviceAccountNamespace", None)
@@ -925,13 +925,14 @@ def test_apply(command_args):
     app_namespace = cluster_options["applicationNamespaces"][0]["name"]
     svc_namespace = cluster_options["serviceNamespaces"][0]["name"]
 
-    if(sa_n and sa_n != "kube-system"):
+    if sa_n and sa_n != "kube-system":
         run_cmd(["kubectl", "create", "namespace",
                 sa_n, "--context",
                 cluster_options["targetCluster"]["context"]])
 
     command = [f"{command_args.venv_dir}/bin/primazactl", "apply",
                "-p", command_args.options_file]
+
     out, err = run_cmd(command)
 
     install_all_outcome = True
@@ -975,8 +976,8 @@ def check_apply_out(out, expect_out):
     return True
 
 
-def update_options_file(options_file):
-    with open(options_file) as options:
+def update_options_file(command_args):
+    with open(command_args.options_file) as options:
         options_yaml = yaml.safe_load(options)
 
     main_url = get_cluster_internal_url(
@@ -989,9 +990,12 @@ def update_options_file(options_file):
                                               replace("kind-", ""))
         target_cluster["internalUrl"] = worker_url
 
+    if command_args.version != options_yaml["version"]:
+        options_yaml["version"] = command_args.version
+
     print(options_yaml)
 
-    with open(options_file, 'w') as options:
+    with open(command_args.options_file, 'w') as options:
         yaml.dump(options_yaml, options)
 
     return options_yaml

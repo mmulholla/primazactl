@@ -232,7 +232,7 @@ test-output: setup-test
 
 .PHONY: test-apply
 test-apply: setup-test
-	$(PYTHON_VENV_DIR)/bin/primazatest -t $(OPTIONS_FILE) -p $(PYTHON_VENV_DIR) 
+	$(PYTHON_VENV_DIR)/bin/primazatest -t $(OPTIONS_FILE) -p $(PYTHON_VENV_DIR) -v $(VERSION)
 
 .PHONY: create-users
 create-users: primazactl
