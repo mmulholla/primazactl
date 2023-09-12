@@ -4,6 +4,7 @@ import sys
 import time
 import os
 import yaml
+import tempfile
 from primazactl.utils.command import Command
 
 PASS = '\033[92mPASS\033[0m'
@@ -706,54 +707,59 @@ def test_dry_run_with_options(command_args):
     app_namespace = cluster_options["applicationNamespaces"][0]["name"]
     svc_namespace = cluster_options["serviceNamespaces"][0]["name"]
 
-    command = [f"{command_args.venv_dir}/bin/primazactl", "apply",
-               "-p", command_args.options_file,
-               "-y", "server"]
-    resp, err = run_cmd(command)
+    with tempfile.NamedTemporaryFile(mode="w+") as options_file:
+        with open(options_file.name, 'w') as options:
+            yaml.dump(options_yaml, options)
 
-    if err:
-        print(f"[{FAIL}] Unexpected error response: {err}")
-        outcome = False
-    elif resp:
-        outcome = True
-        out_lines = None
-        index = 0
-        for line in resp.splitlines():
-            if line.strip(' \t\n\r') == "":
-                if index == 0:
-                    cfg = command_args.main_config
-                    cmd = COMMAND_TENANT
-                    name = tenant
-                    index = 1
-                elif index == 1:
-                    cfg = command_args.worker_config
-                    cmd = COMMAND_JOIN
-                    name = cluster_env
-                    index = 2
-                elif index == 2:
-                    cfg = command_args.app_config
-                    cmd = COMMAND_APP_NS
-                    name = app_namespace
-                    index = 3
-                elif index == 3:
-                    cfg = command_args.service_config
-                    cmd = COMMAND_SVC_NS
-                    name = svc_namespace
-                    index = 4
+        command = [f"{command_args.venv_dir}/bin/primazactl", "apply",
+                   "-p", options_file.name,
+                   "-y", "server"]
+        resp, err = run_cmd(command)
 
-                if index < 4:
-                    print(f"check the output:{cfg}:{cmd}:{name}:")
-                    print(f"output is: {out_lines}")
-                    outcome = outcome & check_dry_run("server", cfg, out_lines,
-                                                      cmd, name)
+        if err:
+            print(f"[{FAIL}] Unexpected error response: {err}")
+            outcome = False
+        elif resp:
+            outcome = True
+            out_lines = None
+            index = 0
+            for line in resp.splitlines():
+                if line.strip(' \t\n\r') == "":
+                    if index == 0:
+                        cfg = command_args.main_config
+                        cmd = COMMAND_TENANT
+                        name = tenant
+                        index = 1
+                    elif index == 1:
+                        cfg = command_args.worker_config
+                        cmd = COMMAND_JOIN
+                        name = cluster_env
+                        index = 2
+                    elif index == 2:
+                        cfg = command_args.app_config
+                        cmd = COMMAND_APP_NS
+                        name = app_namespace
+                        index = 3
+                    elif index == 3:
+                        cfg = command_args.service_config
+                        cmd = COMMAND_SVC_NS
+                        name = svc_namespace
+                        index = 4
 
-                out_lines = ""
-            else:
-                out_lines = f"{out_lines}\n{line}" if out_lines else line
+                    if index < 4:
+                        print(f"check the output:{cfg}:{cmd}:{name}:")
+                        print(f"output is: {out_lines}")
+                        outcome = outcome & check_dry_run("server", cfg,
+                                                          out_lines, cmd,
+                                                          name)
 
-    else:
-        print(f"[{FAIL}] no response received for dry-run test")
-        outcome = False
+                    out_lines = ""
+                else:
+                    out_lines = f"{out_lines}\n{line}" if out_lines else line
+
+        else:
+            print(f"[{FAIL}] no response received for dry-run test")
+            outcome = False
 
     return outcome
 
@@ -761,11 +767,15 @@ def test_dry_run_with_options(command_args):
 def check_dry_run(dry_run_type, manifest_file, resp,
                   check_command, subject_name):
 
-    with open(manifest_file, 'r') as manifest:
-        manifest_yaml = yaml.safe_load_all(manifest)
-        manifest_list = list(manifest_yaml)
+    if manifest_file:
+        with open(manifest_file, 'r') as manifest:
+            manifest_yaml = yaml.safe_load_all(manifest)
+            manifest_list = list(manifest_yaml)
 
-    expect_lines = 0 if dry_run_type == "client" else len(manifest_list)
+        expect_lines = 0 if dry_run_type == "client" else len(manifest_list)
+    else:
+        # must be using a release...if not client would expect at least 1 line
+        expect_lines = 0 if dry_run_type == "client" else 1
 
     if check_command == COMMAND_TENANT:
         expected_last_message = f"Dry run create primaza tenant " \
@@ -930,40 +940,44 @@ def test_apply(command_args):
                 sa_n, "--context",
                 cluster_options["targetCluster"]["context"]])
 
-    command = [f"{command_args.venv_dir}/bin/primazactl", "apply",
-               "-p", command_args.options_file]
+    with tempfile.NamedTemporaryFile(mode="w+") as options_file:
+        with open(options_file.name, 'w') as options:
+            yaml.dump(options_yaml, options)
 
-    out, err = run_cmd(command)
+        command = [f"{command_args.venv_dir}/bin/primazactl", "apply",
+                   "-p", options_file.name]
 
-    install_all_outcome = True
-    if err:
-        print(f"[{FAIL}] Unexpected error response: {err}")
-        install_all_outcome = False
-    elif out:
-        if not check_apply_out(out, f"Create primaza tenant {tenant} "
-                                    f"successfully completed"):
+        out, err = run_cmd(command)
+
+        install_all_outcome = True
+        if err:
+            print(f"[{FAIL}] Unexpected error response: {err}")
             install_all_outcome = False
-        elif not check_apply_out(out, "Join cluster "
-                                      f"{cluster_env} "
-                                      "successfully completed"):
-            install_all_outcome = False
-        elif not check_apply_out(out, "Create application namespace "
-                                      f"{app_namespace} "
-                                      "successfully completed"):
-            install_all_outcome = False
-        elif not check_apply_out(out, "Create service namespace "
-                                      f"{svc_namespace} "
-                                      "successfully completed"):
-            install_all_outcome = False
-        elif not check_apply_out(out, "Primaza install from options "
-                                      "file complete"):
-            install_all_outcome = False
+        elif out:
+            if not check_apply_out(out, f"Create primaza tenant {tenant} "
+                                        f"successfully completed"):
+                install_all_outcome = False
+            elif not check_apply_out(out, "Join cluster "
+                                          f"{cluster_env} "
+                                          "successfully completed"):
+                install_all_outcome = False
+            elif not check_apply_out(out, "Create application namespace "
+                                          f"{app_namespace} "
+                                          "successfully completed"):
+                install_all_outcome = False
+            elif not check_apply_out(out, "Create service namespace "
+                                          f"{svc_namespace} "
+                                          "successfully completed"):
+                install_all_outcome = False
+            elif not check_apply_out(out, "Primaza install from options "
+                                          "file complete"):
+                install_all_outcome = False
+            else:
+                print(f"[{PASS}] apply options file "
+                      f"{command_args.options_file} passed")
         else:
-            print(f"[{PASS}] apply options file "
-                  f"{command_args.options_file} passed")
-    else:
-        print(f"[{FAIL}] apply options file "
-              f"{command_args.options_file} did not produce any output")
+            print(f"[{FAIL}] apply options file "
+                  f"{command_args.options_file} did not produce any output")
 
     return install_all_outcome
 
@@ -990,13 +1004,11 @@ def update_options_file(command_args):
                                               replace("kind-", ""))
         target_cluster["internalUrl"] = worker_url
 
-    if command_args.version != options_yaml["version"]:
+    if command_args.version != "latest":
         options_yaml["version"] = command_args.version
+        options_yaml["manifestDirectory"] = ""
 
     print(options_yaml)
-
-    with open(command_args.options_file, 'w') as options:
-        yaml.dump(options_yaml, options)
 
     return options_yaml
 

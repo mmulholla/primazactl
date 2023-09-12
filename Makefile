@@ -11,11 +11,13 @@ PRIMAZA_CTL_VERSION ?= $(shell git describe --tags --always --abbrev=8 --dirty)
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
-IMG ?= ghcr.io/primaza/primaza:$(VERSION)
-IMG_APP ?= ghcr.io/primaza/primaza-agentapp:$(VERSION)
-IMG_SVC ?= ghcr.io/primaza/primaza-agentsvc:$(VERSION)
-IMG_APP_LOCAL ?= agentapp:$(VERSION)
-IMG_SVC_LOCAL ?= agentsvc:$(VERSION)
+RUN_FROM ?= config
+ORG ?= mmulholla
+IMG = ghcr.io/$(ORG)/primaza:$(VERSION)
+IMG_APP = ghcr.io/$(ORG)/primaza-agentapp:$(VERSION)
+IMG_SVC = ghcr.io/$(ORG)/primaza-agentsvc:$(VERSION)
+IMG_APP_LOCAL = agentapp:$(VERSION)
+IMG_SVC_LOCAL = agentsvc:$(VERSION)
 
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 
@@ -150,7 +152,7 @@ image:
 	docker tag $(IMG_SVC) $(IMG_SVC_LOCAL)
 
 .PHONY: kind-clusters
-kind-clusters: config image
+kind-clusters: image
 	-kind delete cluster --name $(KIND_CLUSTER_TENANT_NAME)
 	-kind delete cluster --name $(KIND_CLUSTER_JOIN_NAME)
 	kind create cluster --config $(TENANT_KIND_CONFIG_FILE) --name $(KIND_CLUSTER_TENANT_NAME) && kubectl wait --for condition=Ready nodes --all --timeout=600s
@@ -164,7 +166,10 @@ kind-clusters: config image
 	kind load docker-image $(IMG_SVC_LOCAL) --name $(KIND_CLUSTER_JOIN_NAME)
 
 .PHONY: setup-test
-setup-test: clean image primazactl config kind-clusters
+setup-test: clean image primazactl kind-clusters
+ifeq ($(RUN_FROM),config)
+	$(MAKE) config
+endif
 
 .PHONY: clone
 clone: clean-temp
@@ -204,7 +209,11 @@ lint: primazactl ## Check python code
 
 .PHONY: test-local
 test-local: setup-test
+ifeq ($(RUN_FROM),config)
 	$(PYTHON_VENV_DIR)/bin/primazatest -p $(PYTHON_VENV_DIR) -e $(WORKER_CONFIG_FILE) -f $(PRIMAZA_CONFIG_FILE) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -a $(APPLICATION_AGENT_CONFIG_FILE) -s $(SERVICE_AGENT_CONFIG_FILE) -j $(SERVICE_ACCOUNT_NAMESPACE)
+else
+	$(PYTHON_VENV_DIR)/bin/primazatest -p $(PYTHON_VENV_DIR) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -j $(SERVICE_ACCOUNT_NAMESPACE) -v $(VERSION)
+endif
 
 .PHONY: test-version
 test-version: setup-test
@@ -217,18 +226,34 @@ test-released:
 
 .PHONY: test-users
 test-users: setup-test create-users
+ifeq ($(RUN_FROM),config)
 	$(PYTHON_VENV_DIR)/bin/primazatest -u -i $(OUTPUT_DIR)/users -p $(PYTHON_VENV_DIR) -e $(WORKER_CONFIG_FILE) -f $(PRIMAZA_CONFIG_FILE) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -a $(APPLICATION_AGENT_CONFIG_FILE) -s $(SERVICE_AGENT_CONFIG_FILE)
+else
+	$(PYTHON_VENV_DIR)/bin/primazatest -u -i $(OUTPUT_DIR)/users -p $(PYTHON_VENV_DIR) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -v $(VERSION)
+endif
 
 .PHONY: test-dry-run
 test-dry-run: setup-test
+ifeq ($(RUN_FROM),config)
 	$(PYTHON_VENV_DIR)/bin/primazatest -d -p $(PYTHON_VENV_DIR) -e $(WORKER_CONFIG_FILE) -f $(PRIMAZA_CONFIG_FILE) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -a $(APPLICATION_AGENT_CONFIG_FILE) -s $(SERVICE_AGENT_CONFIG_FILE) -t $(OPTIONS_FILE)
+else
+	$(PYTHON_VENV_DIR)/bin/primazatest -d -p $(PYTHON_VENV_DIR) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -v $(VERSION) -t $(OPTIONS_FILE)
+endif
 
 .PHONY test-local-no-setup:
+ifeq ($(RUN_FROM),config)
 	$(PYTHON_VENV_DIR)/bin/primazatest -p $(PYTHON_VENV_DIR) -e $(WORKER_CONFIG_FILE) -f $(PRIMAZA_CONFIG_FILE) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -a $(APPLICATION_AGENT_CONFIG_FILE) -s $(SERVICE_AGENT_CONFIG_FILE)
+else
+	$(PYTHON_VENV_DIR)/bin/primazatest -p $(PYTHON_VENV_DIR) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -v $(VERSION)
+endif
 
 .PHONY: test-output
 test-output: setup-test
+ifeq ($(RUN_FROM),config)
 	$(PYTHON_VENV_DIR)/bin/primazatest -o -p $(PYTHON_VENV_DIR) -e $(WORKER_CONFIG_FILE) -f $(PRIMAZA_CONFIG_FILE) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -a $(APPLICATION_AGENT_CONFIG_FILE) -s $(SERVICE_AGENT_CONFIG_FILE)
+else
+	$(PYTHON_VENV_DIR)/bin/primazatest -o -p $(PYTHON_VENV_DIR) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -v $(VERSION)make testset
+endif
 
 .PHONY: test-apply
 test-apply: setup-test

@@ -114,10 +114,10 @@ class Manifest(object):
             logger.log_info(f"release found - name: {release.id}")
             logger.log_info(f"                tag: {release.tag_name}")
 
-            if self.version == "latest":
-                if release.tag_name == "latest":
-                    return self.__get_config_content(release)
-
+            if self.version == "latest" and release.tag_name == "latest":
+                return self.__get_config_content(release)
+            elif self.version == "nightly" and release.tag_name == "nightly":
+                return self.__get_config_content(release)
             else:
                 version = release.tag_name[1:] \
                     if release.tag_name.startswith("v") \

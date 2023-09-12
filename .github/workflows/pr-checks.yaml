@@ -7,6 +7,9 @@ on:
   repository_dispatch:
     types: [ primazactl-test ]
 
+env:
+  GITHUB_TOKEN: ${{ secrets.MM_TOKEN }}
+
 jobs:
   build:
     name: Build artifacts
@@ -36,9 +39,8 @@ jobs:
           if [[ "${{github.event_name}}" == "repository_dispatch" ]]; then
             primaza_version=${{ github.event.client_payload.version }}
             echo "primaza_version=$primaza_version" >> $GITHUB_OUTPUT
-            echo "IMG=${{ github.event.client_payload.primaza_image }}" >> $GITHUB_ENV
-            echo "IMG_APP=${{ github.event.client_payload.app_image }}" >> $GITHUB_ENV
-            echo "IMG_SVC=${{ github.event.client_payload.svc_image }}" >> $GITHUB_ENV
+            echo "ORG=${{ github.event.client_payload.organization }}" >> $GITHUB_ENV
+            echo "RUN_FROM=release" >> $GITHUB_ENV
           else
             echo "primaza_version=latest" >> $GITHUB_OUTPUT
           fi  
@@ -62,11 +64,6 @@ jobs:
         env:
           VERSION: ${{ steps.sets-version.outputs.primaza_version }}
         run: make test-output
-
-      - name: run apply command
-        env:
-          VERSION: ${{ steps.sets-version.outputs.primaza_version }}
-        run: make test-apply
 
       - name: run apply command
         env:
