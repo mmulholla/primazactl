@@ -11,6 +11,7 @@ PRIMAZA_CTL_VERSION ?= $(shell git describe --tags --always --abbrev=8 --dirty)
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
+# SET RUN_FROM to config the create config files or release to use a release
 RUN_FROM ?= config
 ORG ?= mmulholla
 IMG = ghcr.io/$(ORG)/primaza:$(VERSION)
