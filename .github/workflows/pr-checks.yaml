@@ -5,7 +5,7 @@ on:
     types: [opened, synchronize, reopened]
     branches: [ main ]
   repository_dispatch:
-    types: [ primazactl-test ]
+    types: [primazactl-test]
 
 env:
   GITHUB_TOKEN: ${{ secrets.MM_TOKEN }}
@@ -83,6 +83,3 @@ jobs:
           repository: mmulholla/primazactl
           event-type: primazactl-release
           client-payload: '{"version": "${{ env.VERSION }}"}'
-
-
-

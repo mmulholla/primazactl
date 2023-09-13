@@ -59,12 +59,10 @@ class Manifest(object):
                          f"type: {self.type}")
         if self.path:
             with open(self.path, 'r') as manifest:
-                self.body = yaml.safe_load_all(manifest)
-                self.update_namespace()
+                return yaml.safe_load_all(manifest)
         else:
             manifest = self.__set_config_content()
-            self.body = yaml.safe_load_all(manifest)
-            self.update_namespace()
+            return yaml.safe_load_all(manifest)
 
     def apply(self, api_client: client, action: str = "create"):
         logger.log_entry(f"action: {action}")

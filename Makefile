@@ -19,6 +19,9 @@ IMG_SVC = ghcr.io/$(ORG)/primaza-agentsvc:$(VERSION)
 IMG_APP_LOCAL = agentapp:$(VERSION)
 IMG_SVC_LOCAL = agentsvc:$(VERSION)
 
+# set CLEAN to "clusters" to only refresh clusters
+CLEAN ?= all
+
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 
 PRIMAZA_REPO = https://github.com/primaza/primaza.git
@@ -252,7 +255,7 @@ test-output: setup-test
 ifeq ($(RUN_FROM),config)
 	$(PYTHON_VENV_DIR)/bin/primazatest -o -p $(PYTHON_VENV_DIR) -e $(WORKER_CONFIG_FILE) -f $(PRIMAZA_CONFIG_FILE) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -a $(APPLICATION_AGENT_CONFIG_FILE) -s $(SERVICE_AGENT_CONFIG_FILE)
 else
-	$(PYTHON_VENV_DIR)/bin/primazatest -o -p $(PYTHON_VENV_DIR) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -v $(VERSION)make testset
+	$(PYTHON_VENV_DIR)/bin/primazatest -o -p $(PYTHON_VENV_DIR) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -v $(VERSION)
 endif
 
 .PHONY: test-apply
@@ -274,20 +277,30 @@ create-users: primazactl
 .PHONY: test
 test: setup-test test-local test-released
 
+.PHONY: clean
+clean:
+ifeq ($(CLEAN),clusters)
+	$(MAKE) delete-clusters
+else
+	$(MAKE) clean-all
+endif
+
 .PHONY: clean-temp
 clean-temp:
 	-chmod 755 $(TEMP_DIR)/bin/k8s/*
-	rm -rf $(TEMP_DIR)
+	-rm -rf $(TEMP_DIR)
 
-.PHONY: clean
-clean: clean-temp
-	rm -rf $(OUTPUT_DIR)
-	rm -rf $(SCRIPTS_DIR)/build
-	rm -rf $(SCRIPTS_DIR)/dist
-	rm -rf $(SCRIPTS_DIR)/src/rh_primaza_control.egg-info
-	rm -rf $(LOCALBIN)
-	-kind delete cluster --name $(KIND_CLUSTER_TENANT_NAME)
-	-kind delete cluster --name $(KIND_CLUSTER_JOIN_NAME)
-
+.PHONY: clean-all
+clean-all: clean-temp delete-clusters
+	-rm -rf $(OUTPUT_DIR)
+	-rm -rf $(SCRIPTS_DIR)/build
+	-rm -rf $(SCRIPTS_DIR)/dist
+	-rm -rf $(SCRIPTS_DIR)/src/rh_primaza_control.egg-info
+	-rm -rf $(LOCALBIN)
 	-docker image rm $(IMG_APP_LOCAL)
 	-docker image rm $(IMG_SVC_LOCAL)
+
+.PHONY: delete-clusters
+delete-clusters:
+	-kind delete cluster --name $(KIND_CLUSTER_TENANT_NAME)
+	-kind delete cluster --name $(KIND_CLUSTER_JOIN_NAME)

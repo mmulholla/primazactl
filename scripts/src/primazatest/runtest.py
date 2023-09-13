@@ -6,6 +6,9 @@ import os
 import yaml
 import tempfile
 from primazactl.utils.command import Command
+from primazactl.kubectl.manifest import Manifest
+from primazactl.kubectl.constants import PRIMAZA_CONFIG, WORKER_CONFIG, \
+    APP_AGENT_CONFIG, SVC_AGENT_CONFIG
 
 PASS = '\033[92mPASS\033[0m'
 SUCCESS = '\033[92mSUCCESS\033[0m'
@@ -618,6 +621,7 @@ def test_dry_run(command_args, dry_run_type):
 
     outcome = check_dry_run(dry_run_type,
                             command_args.main_config,
+                            command_args.version,
                             worker_resp,
                             COMMAND_TENANT,
                             TENANT)
@@ -641,6 +645,7 @@ def test_dry_run(command_args, dry_run_type):
 
     worker_outcome = check_dry_run(dry_run_type,
                                    command_args.worker_config,
+                                   command_args.version,
                                    worker_resp,
                                    COMMAND_JOIN,
                                    CLUSTER_ENVIRONMENT)
@@ -662,6 +667,7 @@ def test_dry_run(command_args, dry_run_type):
 
     app_outcome = check_dry_run(dry_run_type,
                                 command_args.app_config,
+                                command_args.version,
                                 app_resp,
                                 COMMAND_APP_NS,
                                 APPLICATION_NAMESPACE)
@@ -685,6 +691,7 @@ def test_dry_run(command_args, dry_run_type):
 
     service_outcome = check_dry_run(dry_run_type,
                                     command_args.service_config,
+                                    command_args.version,
                                     service_resp,
                                     COMMAND_SVC_NS,
                                     SERVICE_NAMESPACE)
@@ -723,6 +730,7 @@ def test_dry_run_with_options(command_args):
             outcome = True
             out_lines = None
             index = 0
+            version = command_args.version
             for line in resp.splitlines():
                 if line.strip(' \t\n\r') == "":
                     if index == 0:
@@ -750,8 +758,8 @@ def test_dry_run_with_options(command_args):
                         print(f"check the output:{cfg}:{cmd}:{name}:")
                         print(f"output is: {out_lines}")
                         outcome = outcome & check_dry_run("server", cfg,
-                                                          out_lines, cmd,
-                                                          name)
+                                                          version, out_lines,
+                                                          cmd, name)
 
                     out_lines = ""
                 else:
@@ -764,33 +772,44 @@ def test_dry_run_with_options(command_args):
     return outcome
 
 
-def check_dry_run(dry_run_type, manifest_file, resp,
+def check_dry_run(dry_run_type, manifest_file, version, resp,
                   check_command, subject_name):
 
-    if manifest_file:
-        with open(manifest_file, 'r') as manifest:
-            manifest_yaml = yaml.safe_load_all(manifest)
-            manifest_list = list(manifest_yaml)
-
-        expect_lines = 0 if dry_run_type == "client" else len(manifest_list)
-    else:
-        # must be using a release...if not client would expect at least 1 line
-        expect_lines = 0 if dry_run_type == "client" else 1
-
     if check_command == COMMAND_TENANT:
+        manifest_yaml = get_manifest_yaml(manifest_file,
+                                          version,
+                                          PRIMAZA_CONFIG)
         expected_last_message = f"Dry run create primaza tenant " \
                                 f"{subject_name} successfully completed"
     elif check_command == COMMAND_JOIN:
+        manifest_yaml = get_manifest_yaml(manifest_file,
+                                          version,
+                                          WORKER_CONFIG)
         expected_last_message = f"Dry run join cluster {subject_name} " \
                                 f"successfully completed"
     elif check_command == COMMAND_APP_NS:
+        manifest_yaml = get_manifest_yaml(manifest_file,
+                                          version,
+                                          APP_AGENT_CONFIG)
         expected_last_message = f"Dry run create application namespace " \
                                 f"{subject_name} successfully completed"
     elif check_command == COMMAND_SVC_NS:
+        manifest_yaml = get_manifest_yaml(manifest_file,
+                                          version,
+                                          SVC_AGENT_CONFIG)
         expected_last_message = f"Dry run create service namespace " \
                                 f"{subject_name} successfully completed"
     else:
         expected_last_message = "successfully completed"
+        manifest_yaml = None
+
+    if dry_run_type == "client":
+        expect_lines = 0
+    else:
+        if manifest_yaml:
+            expect_lines = len(list(manifest_yaml))
+        else:
+            expect_lines = 1
 
     outcome = True
 
@@ -831,7 +850,9 @@ def test_output(command_args, dry_run_type=None):
                                        TENANT_FOR_OUTPUT,
                                        None, True, dry_run_type, "yaml")
 
-    outcome = check_output(command_args.main_config, worker_resp)
+    outcome = check_output(command_args.main_config,
+                           command_args.version,
+                           PRIMAZA_CONFIG, worker_resp)
     if outcome:
         print(f"[{PASS}] output yaml tenant install test passed. "
               f"dry-run={dry_run_type}")
@@ -850,7 +871,9 @@ def test_output(command_args, dry_run_type=None):
         None, None, True,
         dry_run_type, "yaml")
 
-    worker_outcome = check_output(command_args.worker_config, worker_resp)
+    worker_outcome = check_output(command_args.worker_config,
+                                  command_args.version,
+                                  WORKER_CONFIG, worker_resp)
     if worker_outcome:
         print(f"[{PASS}] output yaml worker join test passed. ",
               f"dry-run={dry_run_type}")
@@ -869,7 +892,9 @@ def test_output(command_args, dry_run_type=None):
         command_args.service_account_namespace,
         None, None, True, dry_run_type, "yaml")
 
-    app_outcome = check_output(command_args.app_config, app_resp)
+    app_outcome = check_output(command_args.app_config,
+                               command_args.version,
+                               APP_AGENT_CONFIG, app_resp)
     if app_outcome:
         print(f"[{PASS}] output yaml application namespace create test "
               f"passed. dry-run={dry_run_type}")
@@ -888,7 +913,9 @@ def test_output(command_args, dry_run_type=None):
         command_args.service_account_namespace,
         None, None, True, dry_run_type, "yaml")
 
-    service_outcome = check_output(command_args.service_config, service_resp)
+    service_outcome = check_output(command_args.service_config,
+                                   command_args.version,
+                                   SVC_AGENT_CONFIG, service_resp)
 
     if service_outcome:
         print(f"[{PASS}] output yaml service namespace create test "
@@ -900,11 +927,10 @@ def test_output(command_args, dry_run_type=None):
     return outcome & worker_outcome & app_outcome & service_outcome
 
 
-def check_output(manifest_file, resp):
+def check_output(manifest_file, version, type, resp):
 
-    with open(manifest_file, 'r') as manifest:
-        manifest_yaml = yaml.safe_load_all(manifest)
-        manifest_list = list(manifest_yaml)
+    manifest_yaml = get_manifest_yaml(manifest_file, version, type)
+    manifest_list = list(manifest_yaml)
 
     outcome = True
     response_yaml = yaml.safe_load(resp)
@@ -1011,6 +1037,12 @@ def update_options_file(command_args):
     print(options_yaml)
 
     return options_yaml
+
+
+def get_manifest_yaml(config_file, version, type):
+    manifest = Manifest("", config_file,
+                        version, type)
+    return manifest.load_manifest()
 
 
 def main():
