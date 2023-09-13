@@ -63,7 +63,7 @@ jobs:
         run: make single-binary
 
       - name: Delete previous release and tag
-        if: ${{ env.VERSION == 'latest' }}
+        if: ${{ env.VERSION == 'latest' || env.VERSION == 'nightly' }}
         uses: dev-drprasad/delete-tag-and-release@v0.2.1
         with:
           delete_release: true # default: false
