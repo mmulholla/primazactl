@@ -194,6 +194,8 @@ primazactl: ## Setup virtual environment
 
 .PHONY: single-binary
 single-binary: ## Release primazactl as single binary
+	echo '__version__ = "$(PRIMAZA_CTL_VERSION)"' > $(VERSION_FILE)
+	echo '__primaza_version__ = "$(VERSION)"' >> $(VERSION_FILE)
 	-rm -rf $(PYTHON_VENV_DIR)
 	python3 -m venv $(PYTHON_VENV_DIR)
 	$(PYTHON_VENV_DIR)/bin/pip3 install --upgrade pyinstaller

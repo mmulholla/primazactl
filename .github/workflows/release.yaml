@@ -43,7 +43,6 @@ jobs:
       - name: Set Version and Draft release
         run: |
           # set version based on dispatch type
-          version="latest"
           draft_release="true"
           if [[ "${{github.event_name}}" == "workflow_dispatch" ]]; then
             version=${{ github.event.inputs.version }}
@@ -51,14 +50,13 @@ jobs:
             echo "GIT_ORG=${{ github.event.inputs.organization }}" >> $GITHUB_ENV
           elif [[ "${{github.ref_type}}" == "tag" ]]; then
             version=${{ github.ref_name }}
-            draft_release="true"
           elif [[ "${{github.event_name}}" == "repository_dispatch" ]]; then
             version=${{ github.event.client_payload.version }}
             draft_release="false"
             echo "GIT_ORG=${{ github.event.client_payload.organization }}" >> $GITHUB_ENV
           fi
           echo "VERSION=$version" >> $GITHUB_ENV
-          echo "DRAFT_RELEASE=$draft_release"
+          echo "DRAFT_RELEASE=$draft_release" >> $GITHUB_ENV
 
       - name: Test and make manifests
         id: test-and-manifests
@@ -87,10 +85,6 @@ jobs:
           generate_release_notes: true
           files: |
             ./out/venv3/dist/primazactl
-            ${{ env.PRIMAZA_CONFIG_FILE }}
-            ${{ env.WORKER_CONFIG_FILE }}
-            ${{ env.APPLICATION_AGENT_CONFIG_FILE }}
-            ${{ env.SERVICE_AGENT_CONFIG_FILE }}
 
       - name: Release for non tag events
         if: ${{ github.ref_type != 'tag' }}
@@ -102,7 +96,3 @@ jobs:
           generate_release_notes: true
           files: |
             ./out/venv3/dist/primazactl
-            ${{ env.PRIMAZA_CONFIG_FILE }}
-            ${{ env.WORKER_CONFIG_FILE }}
-            ${{ env.APPLICATION_AGENT_CONFIG_FILE }}
-            ${{ env.SERVICE_AGENT_CONFIG_FILE }}
