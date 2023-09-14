@@ -5,7 +5,7 @@ from primazactl.utils import logger, settings
 from github import Auth, Github
 import semver
 import requests
-from.constants import REPOSITORY
+from.constants import get_repository
 from.apply import apply_manifest
 
 
@@ -102,7 +102,7 @@ class Manifest(object):
         logger.log_entry()
 
         g = self.build_github_client()
-        repo = g.get_repo(REPOSITORY)
+        repo = g.get_repo(get_repository())
 
         releases = repo.get_releases()
         latest_release = None
@@ -116,7 +116,7 @@ class Manifest(object):
                 return self.__get_config_content(release)
             elif self.version == "nightly" and release.tag_name == "nightly":
                 return self.__get_config_content(release)
-            else:
+            elif self.version != "latest" and self.version != "nightly":
                 version = release.tag_name[1:] \
                     if release.tag_name.startswith("v") \
                     else release.tag_name
@@ -140,7 +140,7 @@ class Manifest(object):
             return self.__get_config_content(latest_release)
 
         raise RuntimeError(f"A release was not found in repository "
-                           f"{REPOSITORY} for version {self.version}")
+                           f"{get_repository()} for version {self.version}")
 
     def __get_config_content(self, release):
         logger.log_entry(f"release = {release.tag_name}")
@@ -155,7 +155,7 @@ class Manifest(object):
                 return response.text.encode("utf-8")
 
         raise RuntimeError(f"Failed to get release asset {asset_name} "
-                           f"from {REPOSITORY} "
+                           f"from {get_repository()} "
                            f"for version {self.version}")
 
 

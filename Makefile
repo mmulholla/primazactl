@@ -13,10 +13,10 @@ SHELL = /usr/bin/env bash -o pipefail
 
 # SET RUN_FROM to config the create config files or release to use a release
 RUN_FROM ?= config
-ORG ?= mmulholla
-IMG = ghcr.io/$(ORG)/primaza:$(VERSION)
-IMG_APP = ghcr.io/$(ORG)/primaza-agentapp:$(VERSION)
-IMG_SVC = ghcr.io/$(ORG)/primaza-agentsvc:$(VERSION)
+GIT_ORG ?= primaza
+IMG = ghcr.io/$(GIT_ORG)/primaza:$(VERSION)
+IMG_APP = ghcr.io/$(GIT_ORG)/primaza-agentapp:$(VERSION)
+IMG_SVC = ghcr.io/$(GIT_ORG)/primaza-agentsvc:$(VERSION)
 IMG_APP_LOCAL = agentapp:$(VERSION)
 IMG_SVC_LOCAL = agentsvc:$(VERSION)
 
@@ -216,24 +216,24 @@ test-local: setup-test
 ifeq ($(RUN_FROM),config)
 	$(PYTHON_VENV_DIR)/bin/primazatest -p $(PYTHON_VENV_DIR) -e $(WORKER_CONFIG_FILE) -f $(PRIMAZA_CONFIG_FILE) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -a $(APPLICATION_AGENT_CONFIG_FILE) -s $(SERVICE_AGENT_CONFIG_FILE) -j $(SERVICE_ACCOUNT_NAMESPACE)
 else
-	$(PYTHON_VENV_DIR)/bin/primazatest -p $(PYTHON_VENV_DIR) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -j $(SERVICE_ACCOUNT_NAMESPACE) -v $(VERSION)
+	$(PYTHON_VENV_DIR)/bin/primazatest -p $(PYTHON_VENV_DIR) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -j $(SERVICE_ACCOUNT_NAMESPACE) -v $(VERSION) -g$(GIT_ORG)
 endif
 
 .PHONY: test-version
 test-version: setup-test
-	$(PYTHON_VENV_DIR)/bin/primazatest -p $(PYTHON_VENV_DIR) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -v $(VERSION)
+	$(PYTHON_VENV_DIR)/bin/primazatest -p $(PYTHON_VENV_DIR) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -v $(VERSION) -g$(GIT_ORG)
 
 .PHONY: test-released
 test-released:
 	make kind-clusters
-	$(PYTHON_VENV_DIR)/bin/primazatest -p $(PYTHON_VENV_DIR) -v $(VERSION) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME)
+	$(PYTHON_VENV_DIR)/bin/primazatest -p $(PYTHON_VENV_DIR) -v $(VERSION) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME)  g$(GIT_ORG)
 
 .PHONY: test-users
 test-users: setup-test create-users
 ifeq ($(RUN_FROM),config)
 	$(PYTHON_VENV_DIR)/bin/primazatest -u -i $(OUTPUT_DIR)/users -p $(PYTHON_VENV_DIR) -e $(WORKER_CONFIG_FILE) -f $(PRIMAZA_CONFIG_FILE) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -a $(APPLICATION_AGENT_CONFIG_FILE) -s $(SERVICE_AGENT_CONFIG_FILE)
 else
-	$(PYTHON_VENV_DIR)/bin/primazatest -u -i $(OUTPUT_DIR)/users -p $(PYTHON_VENV_DIR) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -v $(VERSION)
+	$(PYTHON_VENV_DIR)/bin/primazatest -u -i $(OUTPUT_DIR)/users -p $(PYTHON_VENV_DIR) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -v $(VERSION) -g$(GIT_ORG)
 endif
 
 .PHONY: test-dry-run
@@ -241,14 +241,14 @@ test-dry-run: setup-test
 ifeq ($(RUN_FROM),config)
 	$(PYTHON_VENV_DIR)/bin/primazatest -d -p $(PYTHON_VENV_DIR) -e $(WORKER_CONFIG_FILE) -f $(PRIMAZA_CONFIG_FILE) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -a $(APPLICATION_AGENT_CONFIG_FILE) -s $(SERVICE_AGENT_CONFIG_FILE) -t $(OPTIONS_FILE)
 else
-	$(PYTHON_VENV_DIR)/bin/primazatest -d -p $(PYTHON_VENV_DIR) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -v $(VERSION) -t $(OPTIONS_FILE)
+	$(PYTHON_VENV_DIR)/bin/primazatest -d -p $(PYTHON_VENV_DIR) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -v $(VERSION) -t $(OPTIONS_FILE) -g$(GIT_ORG)
 endif
 
 .PHONY test-local-no-setup:
 ifeq ($(RUN_FROM),config)
 	$(PYTHON_VENV_DIR)/bin/primazatest -p $(PYTHON_VENV_DIR) -e $(WORKER_CONFIG_FILE) -f $(PRIMAZA_CONFIG_FILE) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -a $(APPLICATION_AGENT_CONFIG_FILE) -s $(SERVICE_AGENT_CONFIG_FILE)
 else
-	$(PYTHON_VENV_DIR)/bin/primazatest -p $(PYTHON_VENV_DIR) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -v $(VERSION)
+	$(PYTHON_VENV_DIR)/bin/primazatest -p $(PYTHON_VENV_DIR) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -v $(VERSION) -g$(GIT_ORG)
 endif
 
 .PHONY: test-output
@@ -256,12 +256,12 @@ test-output: setup-test
 ifeq ($(RUN_FROM),config)
 	$(PYTHON_VENV_DIR)/bin/primazatest -o -p $(PYTHON_VENV_DIR) -e $(WORKER_CONFIG_FILE) -f $(PRIMAZA_CONFIG_FILE) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -a $(APPLICATION_AGENT_CONFIG_FILE) -s $(SERVICE_AGENT_CONFIG_FILE)
 else
-	$(PYTHON_VENV_DIR)/bin/primazatest -o -p $(PYTHON_VENV_DIR) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -v $(VERSION)
+	$(PYTHON_VENV_DIR)/bin/primazatest -o -p $(PYTHON_VENV_DIR) -c $(KUBE_KIND_CLUSTER_JOIN_NAME) -m $(KUBE_KIND_CLUSTER_TENANT_NAME) -v $(VERSION) -g$(GIT_ORG)
 endif
 
 .PHONY: test-apply
 test-apply: setup-test
-	$(PYTHON_VENV_DIR)/bin/primazatest -t $(OPTIONS_FILE) -p $(PYTHON_VENV_DIR) -v $(VERSION)
+	$(PYTHON_VENV_DIR)/bin/primazatest -t $(OPTIONS_FILE) -p $(PYTHON_VENV_DIR) -v $(VERSION)  -g$(GIT_ORG)
 
 .PHONY: create-users
 create-users: primazactl

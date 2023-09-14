@@ -8,7 +8,7 @@ import tempfile
 from primazactl.utils.command import Command
 from primazactl.kubectl.manifest import Manifest
 from primazactl.kubectl.constants import PRIMAZA_CONFIG, WORKER_CONFIG, \
-    APP_AGENT_CONFIG, SVC_AGENT_CONFIG
+    APP_AGENT_CONFIG, SVC_AGENT_CONFIG, TEST_REPOSITORY_OVERRIDE
 
 PASS = '\033[92mPASS\033[0m'
 SUCCESS = '\033[92mSUCCESS\033[0m'
@@ -1110,8 +1110,17 @@ def main():
                         help="namespace used for hosting the service account"
                              "shared with"
                              "Primaza's Control Plane(existing namespace).")
+    parser.add_argument("-g", "--git-organization",
+                        dest="git_org",
+                        required=False,
+                        type=str,
+                        help="Githib organization, to obtain a release from, "
+                             "when using version.")
 
     args = parser.parse_args()
+
+    if args.git_org:
+        os.environ[TEST_REPOSITORY_OVERRIDE] = f"{args.git_org}/primaza"
 
     if args.dry_run:
         outcome = test_dry_run(args, "client")
