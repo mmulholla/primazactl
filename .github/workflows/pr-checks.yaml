@@ -41,11 +41,11 @@ jobs:
             echo "primaza_version=$primaza_version" >> $GITHUB_OUTPUT
             echo "ORG=${{ github.event.client_payload.organization }}" >> $GITHUB_ENV
             echo "RUN_FROM=release" >> $GITHUB_ENV
-            echo "VERSION=$primaza_version" >> >> $GITHUB_ENV
+            echo "VERSION=$primaza_version" >> $GITHUB_ENV
           else
             echo "primaza_version=latest" >> $GITHUB_OUTPUT
             echo "RUN_FROM=config" >> $GITHUB_ENV
-            echo "VERSION=latest" >> >> $GITHUB_ENV
+            echo "VERSION=latest" >> $GITHUB_ENV
           fi  
 
       - name: run dry-run
