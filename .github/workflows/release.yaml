@@ -10,6 +10,10 @@ on:
         description: "create a version for primazctl"
         required: true
         default: "latest"
+      organization:
+        description: "git organization from which to get the primaza release"
+        required: true
+        default: "primaza"
   repository_dispatch:
     types: [primazactl-release]
 
@@ -44,11 +48,14 @@ jobs:
           if [[ "${{github.event_name}}" == "workflow_dispatch" ]]; then
             version=${{ github.event.inputs.version }}
             draft_release="false"
+            echo "GIT_ORG=${{ github.event.inputs.organization }}" >> $GITHUB_ENV
           elif [[ "${{github.ref_type}}" == "tag" ]]; then
             version=${{ github.ref_name }}
+            draft_release="true"
           elif [[ "${{github.event_name}}" == "repository_dispatch" ]]; then
             version=${{ github.event.client_payload.version }}
             draft_release="false"
+            echo "GIT_ORG=${{ github.event.client_payload.organization }}" >> $GITHUB_ENV
           fi
           echo "VERSION=$version" >> $GITHUB_ENV
           echo "DRAFT_RELEASE=$draft_release"

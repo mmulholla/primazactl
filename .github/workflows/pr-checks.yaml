@@ -80,4 +80,5 @@ jobs:
           token: ${{ secrets.MM_TOKEN }}
           repository: mmulholla/primazactl
           event-type: primazactl-release
-          client-payload: '{"version": "${{ env.VERSION }}"}'
+          client-payload: '{"version": "${{ env.VERSION }}",
+                            "organization": "${{ env.GIT_ORG }}"}'
